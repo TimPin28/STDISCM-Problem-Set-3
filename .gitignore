@@ -1,11 +1,7 @@
-# Prerequisites
-*.d
-
 # Compiled Object files
 *.slo
 *.lo
 *.o
-*.obj
 
 # Precompiled Headers
 *.gch
@@ -14,7 +10,6 @@
 # Compiled Dynamic libraries
 *.so
 *.dylib
-*.dll
 
 # Fortran module files
 *.mod
@@ -24,9 +19,52 @@
 *.lai
 *.la
 *.a
-*.lib
 
 # Executables
 *.exe
 *.out
 *.app
+
+# Debug files
+*.pdb
+*.ilk
+*.dSYM/
+
+# Build folders
+bin/
+obj/
+Debug/
+Release/
+x64/
+*.tlog
+*.log
+*.iobj
+*.ipdb
+*.lastbuildstate
+*.idb
+*.pdb
+vc*.pdb
+
+# Visual Studio cache/options directory
+.vs/
+*.opendb
+*.VC.db
+
+# User-specific files
+*.user
+*.userosscache
+
+# Auto-generated files
+*.sdf
+*.opensdf
+*.unsuccessfulbuild
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
