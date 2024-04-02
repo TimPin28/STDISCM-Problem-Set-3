@@ -101,7 +101,6 @@ void drawGrid(sf::RenderWindow& window, int gridSize) {
     }
 }
 
-
 void startFrame() {
     nextParticleIndex.store(0); // Reset the counter for the next frame
     ready = true;

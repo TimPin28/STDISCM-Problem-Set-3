@@ -23,6 +23,13 @@ using namespace std;
 #pragma comment(lib, "ws2_32.lib")
 constexpr int BUFFER_SIZE = 1024;
 
+std::atomic<int> nextParticleIndex(0); // Global counter for the next particle to update
+std::condition_variable cv;
+std::mutex cv_m;
+bool ready = false; // Flag to signal threads to start processing
+bool done = false;  // Flag to indicate processing is done for the current frame
+bool explorerMode = false; // Flag to enable explorer mode
+
 class Particle {
 public:
     double x, y; // Position
@@ -98,36 +105,42 @@ void drawGrid(sf::RenderWindow& window, int gridSize) {
     }
 }
 
+void startFrame() {
+    nextParticleIndex.store(0); // Reset the counter for the next frame
+    ready = true;
+    cv.notify_all();
+}
+
 int main() {
-    // Initialize Winsock
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        cerr << "WSAStartup failed." << endl;
-        return 1;
-    }
+    //// Initialize Winsock
+    //WSADATA wsaData;
+    //if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+    //    cerr << "WSAStartup failed." << endl;
+    //    return 1;
+    //}
 
-    // Create socket
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket == INVALID_SOCKET) {
-        cerr << "Socket creation failed." << endl;
-        WSACleanup();
-        return 1;
-    }
+    //// Create socket
+    //SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    //if (clientSocket == INVALID_SOCKET) {
+    //    cerr << "Socket creation failed." << endl;
+    //    WSACleanup();
+    //    return 1;
+    //}
 
-    // Connect to the server
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("10.147.17.27");  // Server IP address
-    serverAddr.sin_port = htons(12345);
+    //// Connect to the server
+    //sockaddr_in serverAddr;
+    //serverAddr.sin_family = AF_INET;
+    //serverAddr.sin_addr.s_addr = inet_addr("10.147.17.27");  // Server IP address
+    //serverAddr.sin_port = htons(12345);
 
-    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
-        cerr << "Connection failed." << WSAGetLastError() << endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        return 1;
-    }
+    //if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+    //    cerr << "Connection failed." << WSAGetLastError() << endl;
+    //    closesocket(clientSocket);
+    //    WSACleanup();
+    //    return 1;
+    //}
 
-    cout << "Connected to server." << endl;
+    //cout << "Connected to server." << endl;
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -188,6 +201,8 @@ int main() {
 
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
 
+    explorerMode = true; 
+
     while (window.isOpen()) {
         nextParticleIndex.store(0); // Reset the counter for the next frame
 
@@ -223,12 +238,14 @@ int main() {
                     }
                 }
 
-                // Adjust the view to center on the sprite's position
-                sf::Vector2f spritePosition = sprite.getPosition();
-                explorerView.setCenter(spritePosition);
-                window.setView(explorerView);
+                
             }
         }
+
+        // Adjust the view to center on the sprite's position
+        sf::Vector2f spritePosition = sprite.getPosition();
+        explorerView.setCenter(spritePosition);
+        window.setView(explorerView);
 
         window.clear();
 
