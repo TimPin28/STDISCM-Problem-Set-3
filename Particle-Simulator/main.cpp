@@ -3,6 +3,7 @@
 #include <TGUI/Backend/SFML-Graphics.hpp>
 #include <TGUI/Widget.hpp>
 #include <TGUI/String.hpp>
+#include <winsock2.h>
 #include <iostream>
 #include <stdexcept>
 #include <sstream>
@@ -13,6 +14,8 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+#pragma comment(lib, "ws2_32.lib")
 
 std::atomic<int> nextParticleIndex(0); // Global counter for the next particle to update
 std::condition_variable cv;
@@ -104,6 +107,46 @@ void startFrame() {
 }
 
 int main() {
+
+    // Initialize Winsock
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed." << std::endl;
+        return 1;
+    }
+
+    // Create socket
+    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed." << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Bind the socket
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(12345);
+
+    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Listen for incoming connections
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr << "Listen failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "Waiting for connections..." << std::endl;
+
+
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
     sf::RenderWindow window(sf::VideoMode(windowSize.x, windowSize.y), "Particle Simulator");
