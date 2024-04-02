@@ -1,3 +1,5 @@
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 #include <SFML/Graphics.hpp>
 #include <TGUI/TGUI.hpp>
 #include <TGUI/Backend/SFML-Graphics.hpp>
@@ -540,10 +542,9 @@ int main() {
     float scale = desiredWidth / textureSize.x;
     sprite.setScale(scale, scale); // Apply scaling
 
-    // Views for developer and explorer modes
+    // Views for developer 
     sf::View developerView(sf::FloatRect(0, 0, 1280, 720));
-    sf::View explorerView(sf::FloatRect(0, 0, 33.f, 19.f));
-    explorerView.setCenter(windowSize.x / 2.f, windowSize.y / 2.f);
+
 
     // Create worker threads
     for (size_t i = 0; i < threadCount; ++i) {
@@ -562,44 +563,6 @@ int main() {
 
             if (event.type == sf::Event::Closed) {
                 window.close();
-            }
-
-            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::E) {
-                // Toggle explorer mode on key press 'E'
-                explorerMode = !explorerMode;
-                window.setView(explorerMode ? explorerView : developerView);
-                toggleCheckbox->setVisible(!explorerMode);
-                toggleCheckbox->setChecked(explorerMode);
-            }
-
-            // Handle sprite movement if in explorer mode
-            if (explorerMode && event.type == sf::Event::KeyPressed) {
-                float moveSpeed = 2.0f; // Adjust speed
-                if (event.key.code == sf::Keyboard::W || event.key.code == sf::Keyboard::Up) {
-                    if (sprite.getPosition().y > 0.00) {
-                        sprite.move(0, -moveSpeed); // Move up
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::S || event.key.code == sf::Keyboard::Down) {
-                    if (sprite.getPosition().y < 720.00) {
-                        sprite.move(0, moveSpeed); // Move down                 
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::A || event.key.code == sf::Keyboard::Left) {
-                    if (sprite.getPosition().x > 0.00) {
-                        sprite.move(-moveSpeed, 0); // Move left 
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::D || event.key.code == sf::Keyboard::Right) {
-                    if (sprite.getPosition().x < 1280.00) {
-                        sprite.move(moveSpeed, 0); // Move right
-                    }
-                }
-
-                // Adjust the view to center on the sprite's position
-                sf::Vector2f spritePosition = sprite.getPosition();
-                explorerView.setCenter(spritePosition);
-                window.setView(explorerView);
             }
         }
 
@@ -650,7 +613,6 @@ int main() {
         window.setView(uiView);
         window.draw(fpsText); // Draw the FPS counter on the window
         //window.draw(sprite); // Draw the sprite in the window
-        window.setView(explorerMode ? explorerView : developerView); // Switch back to the main view
         window.display();
     }
 
