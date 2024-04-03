@@ -27,8 +27,7 @@ std::atomic<int> nextParticleIndex(0); // Global counter for the next particle t
 std::condition_variable cv;
 std::mutex cv_m;
 bool ready = false; // Flag to signal threads to start processing
-bool done = false;  // Flag to indicate processing is done for the current frame
-bool explorerMode = false; // Flag to enable explorer mode
+std::mutex particleMutex;  // Mutex for thread-safe access to particles
 
 class Particle {
 public:
@@ -90,57 +89,52 @@ void startFrame() {
     cv.notify_all();
 }
 
-// Function to receive particles over TCP
-std::vector<Particle> receive_particles(SOCKET clientSocket) {
-    std::vector<Particle> particles;
+vector<Particle> receive_particle_data(SOCKET clientSocket) {
+    size_t numParticles = 0;
+    vector<Particle> receivedParticles;
 
     // First, receive the number of particles
-    int numParticles = 0;
-    int bytesReceived = recv(clientSocket, reinterpret_cast<char*>(&numParticles), sizeof(numParticles), 0);
-
-    // print bytes received
-    std::cout << "Bytes received: " << bytesReceived << std::endl;
-
-    if (bytesReceived <= 0) {
-        // Handle error or closed connection
-        return particles;
+    int bytesReceived = recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
+    if (bytesReceived < 0) {
+        cerr << "Failed to receive number of particles or connection closed." << endl;
+        return receivedParticles;
     }
 
-    return particles;
-}
+    cout << "Receiving " << numParticles << " particles" << endl;
 
-// Function to receive a serialized object over TCP
-Particle receive_object(SOCKET socket_fd) {
-    std::vector<char> buffer(sizeof(Particle));
-    recv(socket_fd, buffer.data(), buffer.size(), 0);
-    return Particle::deserialize(buffer);
-}
-
-vector<Particle> receive_particle_data(SOCKET clientSocket) {
-    size_t numParticles;
-    vector<Particle> test;
-    double data[10][3];  // The array to hold received data
-
-    // First, receive the number of particles
-    recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
+    // Use a vector to store received data dynamically
+    vector<double> data(numParticles * 3);  // Each particle has 3 values (x, y, radius)
 
     if (numParticles > 0) {
         // Then receive the particle data
-        recv(clientSocket, (char*)data, sizeof(data), 0);
+        bytesReceived = recv(clientSocket, (char*)data.data(), numParticles * 3 * sizeof(double), 0);
+        if (bytesReceived <= 0) {
+            cerr << "Failed to receive particle data or connection closed." << endl;
+            return receivedParticles;
+        }
 
         // Process the received data
         for (size_t i = 0; i < numParticles; ++i) {
-            std::cout << "Particle " << i << ": x=" << data[i][0]
-                << ", y=" << data[i][1] << ", radius=" << data[i][2] << std::endl;
-            test.push_back(Particle(data[i][0], data[i][1], 0, data[i][2]));
+            double x = data[i * 3];
+            double y = data[i * 3 + 1];
+            double radius = data[i * 3 + 2];
+            cout << "Particle " << i << ": x=" << x << ", y=" << y << ", radius=" << radius << endl;
+            receivedParticles.push_back(Particle(x, y, 0, radius));
         }
     }
-    
-    
 
-    return test;
+    return receivedParticles;
 }
 
+
+void updateParticlesFromServer(SOCKET clientSocket, std::vector<Particle>& particles) {
+    while (true) {
+        std::vector<Particle> newParticles = receive_particle_data(clientSocket);
+
+        std::lock_guard<std::mutex> guard(particleMutex);  // Lock the mutex for safe access to particles
+        particles = newParticles;  // Update the shared particles vector
+    }
+}
 
 int main() {
     //// Initialize Winsock
@@ -180,7 +174,6 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-    std::vector<Particle> particles;
 
     // Print the received particles
     /*for (const auto& particle : particles) {
@@ -231,6 +224,11 @@ int main() {
 
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
 
+    std::vector<Particle> particles;
+    std::thread listenerThread(updateParticlesFromServer, clientSocket, std::ref(particles));
+    listenerThread.detach();  // Detach the thread
+
+
     while (window.isOpen()) {
         // Receive particles from the server in new delta time
         // particles = receive_particles(clientSocket);
@@ -269,11 +267,6 @@ int main() {
             }
         }
 
-        /*Particle receivedParticle = receive_object(clientSocket);
-        std::cout << "Particle: x=" << receivedParticle.x << ", y=" << receivedParticle.y << ", radius=" << receivedParticle.radius << std::endl;*/
-
-        particles = receive_particle_data(clientSocket);
-
         // Adjust the view to center on the sprite's position
         sf::Vector2f spritePosition = sprite.getPosition();
         explorerView.setCenter(spritePosition);
@@ -298,13 +291,18 @@ int main() {
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
-        //Draw particles
-        for (const auto& particle : particles) {
-            sf::CircleShape shape(particle.radius);
-            shape.setFillColor(sf::Color::Green);
-            shape.setPosition(static_cast<float>(particle.x - particle.radius), static_cast<float>(particle.y - particle.radius));
-            window.draw(shape);
+        // Access shared particles data safely
+        {
+            std::lock_guard<std::mutex> guard(particleMutex);
+            //Draw particles
+            for (const auto& particle : particles) {
+                sf::CircleShape shape(particle.radius);
+                shape.setFillColor(sf::Color::Green);
+                shape.setPosition(static_cast<float>(particle.x - particle.radius), static_cast<float>(particle.y - particle.radius));
+                window.draw(shape);
+            }
         }
+        
 
         window.draw(sprite); // Draw the sprite in the window
 

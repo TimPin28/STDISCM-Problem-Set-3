@@ -156,24 +156,23 @@ void send_object(const Particle& obj, SOCKET serverSocket) {
 }
 
 void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSocket) {
-    // Assume we're sending a 2D array (for simplicity) where each row has 3 elements (x, y, radius)
     size_t numParticles = particles.size();
-    size_t numElements = 3;  // x, y, radius
-    double data[10][3];  // Assuming we have a maximum of 10 particles for demonstration
+
+    // Sending each particle's x, y, and radius as a continuous array of doubles
+    std::vector<double> data(numParticles * 3);
 
     for (size_t i = 0; i < numParticles; ++i) {
-        data[i][0] = particles[i].x;
-        data[i][1] = particles[i].y;
-        data[i][2] = particles[i].radius;
+        data[i * 3] = particles[i].x;
+        data[i * 3 + 1] = particles[i].y;
+        data[i * 3 + 2] = particles[i].radius;
     }
 
     // Send the number of particles first
     send(serverSocket, (char*)&numParticles, sizeof(numParticles), 0);
 
     // Then send the particle data
-    send(serverSocket, (char*)data, sizeof(data), 0);
+    send(serverSocket, (char*)data.data(), data.size() * sizeof(double), 0);
 }
-
 
 int main() {
 
