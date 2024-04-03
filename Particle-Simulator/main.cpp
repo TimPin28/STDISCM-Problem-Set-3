@@ -136,7 +136,7 @@ SOCKET acceptAndIdentifyClient(SOCKET serverSocket) {
     return client;
 }
 
-void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSocket) {
+void send_particle_data(const std::vector<Particle>& particles, SOCKET clientSocket) {
     size_t numParticles = particles.size();
 
     // Sending each particle's x, y, and radius as a continuous array of doubles
@@ -149,10 +149,10 @@ void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSoc
     }
 
     // Send the number of particles first
-    send(serverSocket, (char*)&numParticles, sizeof(numParticles), 0);
+    send(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
 
     // Then send the particle data
-    send(serverSocket, (char*)data.data(), data.size() * sizeof(double), 0);
+    send(clientSocket, (char*)data.data(), data.size() * sizeof(double), 0);
 }
 
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
@@ -683,9 +683,16 @@ int main() {
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
+        //Thread?
         if (spriteClient1 != INVALID_SOCKET && !particles.empty()) {
             send_particle_data(particles, spriteClient1);
 		}
+        if (spriteClient2 != INVALID_SOCKET && !particles.empty()) {
+            send_particle_data(particles, spriteClient2);
+        }
+        if (spriteClient3 != INVALID_SOCKET && !particles.empty()) {
+            send_particle_data(particles, spriteClient3);
+        }
 
         //Draw particles
         for (const auto& particle : particles) {
