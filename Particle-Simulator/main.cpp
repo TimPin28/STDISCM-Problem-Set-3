@@ -174,6 +174,31 @@ void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSoc
     send(serverSocket, (char*)data.data(), data.size() * sizeof(double), 0);
 }
 
+void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
+    struct SpriteData {
+        float x, y;
+    };
+
+    SpriteData data;
+
+    while (!done) {
+        int bytesReceived = recv(clientSocket, (char*)&data, sizeof(data), 0);
+        if (bytesReceived > 0) {
+            // Update the sprite's position based on received data
+            sprite.setPosition(data.x, data.y);
+        }
+        else if (bytesReceived == 0) {
+            std::cout << "Client disconnected." << std::endl;
+            break;
+        }
+        else {
+            std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+            break;
+        }
+    }
+}
+
+
 int main() {
 
     // Initialize Winsock
@@ -663,14 +688,10 @@ int main() {
             
 		}
 
-        //// send to client
-        //Particle particle(0, 1, 1);
-        //
-        //send_object(particle, spriteClient);
-
-        //if (send(spriteClient, (char*)&particle, sizeof(Particle), 0) == SOCKET_ERROR) {
-        //    std::cerr << "Send failed." << std::endl;
-        //}
+        if (spriteClient != INVALID_SOCKET) {
+            std::thread receiveThread(receiveSpriteData, spriteClient, std::ref(sprite));
+            receiveThread.detach();
+        }
 
         //Draw particles
         for (const auto& particle : particles) {

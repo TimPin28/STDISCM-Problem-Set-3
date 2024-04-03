@@ -136,6 +136,22 @@ void updateParticlesFromServer(SOCKET clientSocket, std::vector<Particle>& parti
     }
 }
 
+void sendSpriteData(SOCKET serverSocket, const sf::Sprite& sprite) {
+    struct SpriteData {
+        float x, y;
+    };
+
+    while (true) {
+        SpriteData data;
+        data.x = sprite.getPosition().x;
+        data.y = sprite.getPosition().y;
+
+        send(serverSocket, (char*)&data, sizeof(data), 0);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Send data periodically
+    }
+}
+
 int main() {
     //// Initialize Winsock
     WSADATA wsaData;
@@ -228,6 +244,8 @@ int main() {
     std::thread listenerThread(updateParticlesFromServer, clientSocket, std::ref(particles));
     listenerThread.detach();  // Detach the thread
 
+    std::thread spriteSendThread([&]() { sendSpriteData(clientSocket, sprite); });
+    spriteSendThread.detach();
 
     while (window.isOpen()) {
         // Receive particles from the server in new delta time
@@ -302,7 +320,6 @@ int main() {
                 window.draw(shape);
             }
         }
-        
 
         window.draw(sprite); // Draw the sprite in the window
 
@@ -316,14 +333,3 @@ int main() {
     WSACleanup();
     return 0;
 }
-
-//initialize_network;
-//
-//while (running) {
-//    handle_user_input  // Gather user commands and send them to the server
-//    update_network     // Send and receive network messages
-//    process_server_messages // Process messages received from the server
-//    render            // Render the updated simulation state
-//}
-//
-//cleanup_network
