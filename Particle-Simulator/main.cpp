@@ -55,7 +55,7 @@ public:
 
 };
 
-void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight/*, SOCKET serverSocket*/) {
+void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight, SOCKET serverSocket) {
     while (!done) {
         std::unique_lock<std::mutex> lk(cv_m);
         cv.wait(lk, [] { return ready || done; });
@@ -74,10 +74,13 @@ void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, do
 
 // Function to send an array of particles over TCP
 void send_particles(const std::vector<Particle>& particles, SOCKET serverSocket) {
-    for (const auto& particle : particles) {
-        // Send the particle as raw bytes
+    // Send the number of particles first
+    int numParticles = 10;
+    send(serverSocket, (char*)&numParticles, sizeof(numParticles), 0);
+
+    /*for (const auto& particle : particles) {
         send(serverSocket, (char*)&particle, sizeof(Particle), 0);
-    }
+    }*/
 }
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
@@ -114,6 +117,18 @@ void startFrame() {
     nextParticleIndex.store(0); // Reset the counter for the next frame
     ready = true;
     cv.notify_all();
+}
+
+// Function to accept and identify client type
+SOCKET acceptAndIdentifyClient(SOCKET serverSocket) {
+    SOCKET client;
+    client = accept(serverSocket, nullptr, nullptr);
+    if (client == INVALID_SOCKET) {
+        std::cerr << "Accept failed." << std::endl;
+        return client;
+    }
+    std::cout << "Client connected." << std::endl;
+    return client;
 }
 
 int main() {
@@ -154,7 +169,16 @@ int main() {
         return 1;
     }
 
-    std::cout << "Waiting for connections..." << std::endl;
+    // Define SOCKET variables outside the threads
+    SOCKET spriteClient = INVALID_SOCKET;
+
+    // Accept two client connections
+    std::thread connectH([&]() {
+        spriteClient = acceptAndIdentifyClient(serverSocket);
+        });
+
+
+    connectH.detach();
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -182,11 +206,6 @@ int main() {
     sf::Text fpsText("", font, 20);
     fpsText.setFillColor(sf::Color::White);
     fpsText.setPosition(5.f, 5.f); // Position the FPS counter in the top-left corner
-
-    sf::Text explorerText("Press E to enter Explorer Mode", font, 20);
-    explorerText.setFillColor(sf::Color::White);
-    explorerText.setPosition(0, 720); // Position text in the bottom-left corner
-    window.draw(explorerText);
 
     tgui::Gui gui(window); // Initialize TGUI Gui object for the window
 
@@ -593,7 +612,13 @@ int main() {
         ready = false; // Threads are now processing
 
         //Maybe send particles
-        send_particles(particles, serverSocket);
+        //send_particles(particles, serverSocket);
+
+        // send a hello message to client
+        int message = 2012;
+        if (send(spriteClient, (char*)&message, sizeof(message), 0) == SOCKET_ERROR) {
+            /*std::cerr << "Send failed." << std::endl;*/
+        }
 
         //Draw particles
         for (const auto& particle : particles) {

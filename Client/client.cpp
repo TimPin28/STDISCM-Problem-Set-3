@@ -86,15 +86,36 @@ void startFrame() {
 // Function to receive particles over TCP
 std::vector<Particle> receive_particles(SOCKET clientSocket) {
     std::vector<Particle> particles;
-    while (true) {
-        Particle particle;
-        // Receive raw bytes representing a Particle object
-        int bytes_received = recv(clientSocket, (char*)&particle, sizeof(Particle), 0);
-        if (bytes_received <= 0) {
-            break; // Break if no more data or error occurs
-        }
-        particles.push_back(particle);
+
+    // First, receive the number of particles
+    int numParticles = 0;
+    int bytesReceived = recv(clientSocket, reinterpret_cast<char*>(&numParticles), sizeof(numParticles), 0);
+
+    // print bytes received
+    std::cout << "Bytes received: " << bytesReceived << std::endl;
+
+    if (bytesReceived <= 0) {
+        // Handle error or closed connection
+        return particles;
     }
+
+    //// Now we know how many particles to expect, so receive them
+    //for (int i = 0; i < numParticles; ++i) {
+    //    Particle particle;
+    //    bytesReceived = recv(clientSocket, (char*)&particle, sizeof(Particle), 0);
+    //    if (bytesReceived > 0) {
+    //        particles.push_back(particle);
+    //    }
+    //    else if (bytesReceived == 0) {
+    //        std::cout << "Connection closed." << std::endl;
+    //        break;
+    //    }
+    //    else {
+    //        std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+    //        break;
+    //    }
+    //}
+
     return particles;
 }
 
@@ -117,7 +138,7 @@ int main() {
     // Connect to the server
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("192.168.254.105");  // Server IP address
+    serverAddr.sin_addr.s_addr = inet_addr("10.147.17.27");  // Server IP address
     serverAddr.sin_port = htons(12345);
 
     if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
@@ -136,12 +157,12 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-    std::vector<Particle> particles = receive_particles(clientSocket);
+    // std::vector<Particle> particles = receive_particles(clientSocket);
 
     // Print the received particles
-    for (const auto& particle : particles) {
+    /*for (const auto& particle : particles) {
         std::cout << "Particle: x=" << particle.x << ", y=" << particle.y << ", radius=" << particle.radius << std::endl;
-    }
+    }*/
 
     double deltaTime = 1; // Time step for updating particle positions
 
@@ -189,7 +210,15 @@ int main() {
 
     while (window.isOpen()) {
         // Receive particles from the server in new delta time
-        particles = receive_particles(clientSocket);
+        // particles = receive_particles(clientSocket);
+
+        int message;
+        int bytesReceived = recv(clientSocket, reinterpret_cast<char*>(&message), sizeof(message), 0);
+        if (bytesReceived <= 0) {
+            std::cerr << "Receive failed." << std::endl;
+        }
+        //Print message
+        std::cout << "Message: " << message << std::endl;
 
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -221,7 +250,7 @@ int main() {
                     if (sprite.getPosition().x < 1280.00) {
                         sprite.move(moveSpeed, 0); // Move right
                     }
-                }            
+                }
             }
         }
 
@@ -250,12 +279,12 @@ int main() {
         ready = false; // Threads are now processing
 
         //Draw particles
-        for (const auto& particle : particles) {
+        /*for (const auto& particle : particles) {
             sf::CircleShape shape(particle.radius);
             shape.setFillColor(sf::Color::Green);
             shape.setPosition(static_cast<float>(particle.x - particle.radius), static_cast<float>(particle.y - particle.radius));
             window.draw(shape);
-        }
+        }*/
 
         window.draw(sprite); // Draw the sprite in the window
 
@@ -265,18 +294,10 @@ int main() {
         window.display();
     }
 
-    // Cleanup: Signal threads to exit and join them
-    done = true;
-    ready = true; // Ensure threads are not stuck waiting
-    cv.notify_all();
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
-
+    closesocket(clientSocket);
+    WSACleanup();
     return 0;
 }
-
 
 //initialize_network;
 //
