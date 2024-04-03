@@ -55,7 +55,7 @@ public:
 
 };
 
-void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight, SOCKET serverSocket) {
+void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight/*, SOCKET serverSocket*/) {
     while (!done) {
         std::unique_lock<std::mutex> lk(cv_m);
         cv.wait(lk, [] { return ready || done; });
@@ -67,18 +67,18 @@ void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, do
                 break;
             }
             particles[index].updatePosition(deltaTime, simWidth, simHeight);
-            send(serverSocket, (char*)&particles[index], sizeof(Particle), 0);
+            //send(serverSocket, (char*)&particles[index], sizeof(Particle), 0);
         }
     }
 }
 
-//// Function to send an array of particles over TCP
-//void send_particles(const std::vector<Particle>& particles, SOCKET serverSocket) {
-//    for (const auto& particle : particles) {
-//        // Send the particle as raw bytes
-//        send(serverSocket, (char*)&particle, sizeof(Particle), 0);
-//    }
-//}
+// Function to send an array of particles over TCP
+void send_particles(const std::vector<Particle>& particles, SOCKET serverSocket) {
+    for (const auto& particle : particles) {
+        // Send the particle as raw bytes
+        send(serverSocket, (char*)&particle, sizeof(Particle), 0);
+    }
+}
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
     int width = window.getSize().x;
@@ -591,6 +591,9 @@ int main() {
 
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
+
+        //Maybe send particles
+        send_particles(particles, serverSocket);
 
         //Draw particles
         for (const auto& particle : particles) {
