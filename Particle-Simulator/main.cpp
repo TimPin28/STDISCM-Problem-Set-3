@@ -223,9 +223,31 @@ int main() {
     SOCKET spriteClient2 = INVALID_SOCKET;
     SOCKET spriteClient = INVALID_SOCKET;
 
-    // Accept two client connections
+    // Load sprite texture
+    sf::Texture spriteTexture;
+    if (!spriteTexture.loadFromFile("Image/sprite.png")) {
+        // Handle error
+        std::cerr << "Could not load sprite texture\n";
+        return -1;
+    }
+    // Initialize sprite
+    sf::Sprite sprite1;
+    sprite1.setTexture(spriteTexture);
+    sprite1.setPosition(-10000, -10000); // Starting position
+
+    // Scale the sprite
+    sf::Vector2u textureSize = spriteTexture.getSize();
+    float desiredWidth = 5.f; // Set width
+    float scale = desiredWidth / textureSize.x;
+    sprite1.setScale(scale, scale); // Apply scaling
+
+    // Accept 3 client connections
     std::thread connectClient1([&]() {
         spriteClient1 = acceptAndIdentifyClient(serverSocket);
+
+        //Thread for receiving sprite data
+        std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
+        receiveThread.detach();
         });
     connectClient1.detach();
 
@@ -273,7 +295,6 @@ int main() {
     renderer->setTextColor(sf::Color::White);
     
     // Widgets for input fields
-
     // Particle Input Form 1
     auto noParticles1 = tgui::EditBox::create();
     noParticles1->setPosition("10%", "5%");
@@ -602,25 +623,6 @@ int main() {
         }
         });
 
-    // Load sprite texture
-    sf::Texture spriteTexture;
-    if (!spriteTexture.loadFromFile("Image/sprite.png")) {
-        // Handle error
-        std::cerr << "Could not load sprite texture\n";
-        return -1;
-    }
-
-    // Initialize sprite
-    sf::Sprite sprite;
-    sprite.setTexture(spriteTexture);
-    sprite.setPosition(-10000, -10000); // Starting position
-
-    // Scale the sprite
-    sf::Vector2u textureSize = spriteTexture.getSize();
-    float desiredWidth = 1.f; // Set width
-    float scale = desiredWidth / textureSize.x;
-    sprite.setScale(scale, scale); // Apply scaling
-
     // Create worker threads
     for (size_t i = 0; i < threadCount; ++i) {
         threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverSocket);
@@ -665,12 +667,6 @@ int main() {
             send_particle_data(particles, spriteClient1);
 		}
 
-        if (spriteClient1 != INVALID_SOCKET) {
-            std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite));
-            receiveThread.detach();
-            //window.draw(sprite);
-        }
-
         //Draw particles
         for (const auto& particle : particles) {
             sf::CircleShape shape(particle.radius);
@@ -679,13 +675,9 @@ int main() {
             window.draw(shape);
         }
 
-        sf::Vector2u textureSize = spriteTexture.getSize();
-        float desiredWidth = 5.f; // Set width
-        float scale = desiredWidth / textureSize.x;
-        sprite.setScale(scale, scale); // Apply scaling
         gui.draw(); // Draw the GUI
    
-        window.draw(sprite); // Draw the sprite in the window
+        window.draw(sprite1); // Draw the sprite in the window
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
         window.draw(fpsText); // Draw the FPS counter on the window
