@@ -45,6 +45,13 @@ public:
 
     // Default constructor
     Particle() : x(0), y(0), radius(0) {}
+
+    // Deserialize the byte stream into an object
+    static Particle deserialize(const std::vector<char>& data) {
+        Particle particle;
+        memcpy(&particle, data.data(), sizeof(particle));
+        return particle;
+    }
 };
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
@@ -99,25 +106,41 @@ std::vector<Particle> receive_particles(SOCKET clientSocket) {
         return particles;
     }
 
-    //// Now we know how many particles to expect, so receive them
-    //for (int i = 0; i < numParticles; ++i) {
-    //    Particle particle;
-    //    bytesReceived = recv(clientSocket, (char*)&particle, sizeof(Particle), 0);
-    //    if (bytesReceived > 0) {
-    //        particles.push_back(particle);
-    //    }
-    //    else if (bytesReceived == 0) {
-    //        std::cout << "Connection closed." << std::endl;
-    //        break;
-    //    }
-    //    else {
-    //        std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
-    //        break;
-    //    }
-    //}
-
     return particles;
 }
+
+// Function to receive a serialized object over TCP
+Particle receive_object(SOCKET socket_fd) {
+    std::vector<char> buffer(sizeof(Particle));
+    recv(socket_fd, buffer.data(), buffer.size(), 0);
+    return Particle::deserialize(buffer);
+}
+
+vector<Particle> receive_particle_data(SOCKET clientSocket) {
+    size_t numParticles;
+    vector<Particle> test;
+    double data[10][3];  // The array to hold received data
+
+    // First, receive the number of particles
+    recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
+
+    if (numParticles > 0) {
+        // Then receive the particle data
+        recv(clientSocket, (char*)data, sizeof(data), 0);
+
+        // Process the received data
+        for (size_t i = 0; i < numParticles; ++i) {
+            std::cout << "Particle " << i << ": x=" << data[i][0]
+                << ", y=" << data[i][1] << ", radius=" << data[i][2] << std::endl;
+            test.push_back(Particle(data[i][0], data[i][1], 0, data[i][2]));
+        }
+    }
+    
+    
+
+    return test;
+}
+
 
 int main() {
     //// Initialize Winsock
@@ -157,7 +180,7 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-    // std::vector<Particle> particles = receive_particles(clientSocket);
+    std::vector<Particle> particles;
 
     // Print the received particles
     /*for (const auto& particle : particles) {
@@ -212,14 +235,6 @@ int main() {
         // Receive particles from the server in new delta time
         // particles = receive_particles(clientSocket);
 
-        int message;
-        int bytesReceived = recv(clientSocket, reinterpret_cast<char*>(&message), sizeof(message), 0);
-        if (bytesReceived <= 0) {
-            std::cerr << "Receive failed." << std::endl;
-        }
-        //Print message
-        std::cout << "Message: " << message << std::endl;
-
         sf::Event event;
         while (window.pollEvent(event)) {
             gui.handleEvent(event);
@@ -254,6 +269,11 @@ int main() {
             }
         }
 
+        /*Particle receivedParticle = receive_object(clientSocket);
+        std::cout << "Particle: x=" << receivedParticle.x << ", y=" << receivedParticle.y << ", radius=" << receivedParticle.radius << std::endl;*/
+
+        particles = receive_particle_data(clientSocket);
+
         // Adjust the view to center on the sprite's position
         sf::Vector2f spritePosition = sprite.getPosition();
         explorerView.setCenter(spritePosition);
@@ -279,12 +299,12 @@ int main() {
         ready = false; // Threads are now processing
 
         //Draw particles
-        /*for (const auto& particle : particles) {
+        for (const auto& particle : particles) {
             sf::CircleShape shape(particle.radius);
             shape.setFillColor(sf::Color::Green);
             shape.setPosition(static_cast<float>(particle.x - particle.radius), static_cast<float>(particle.y - particle.radius));
             window.draw(shape);
-        }*/
+        }
 
         window.draw(sprite); // Draw the sprite in the window
 

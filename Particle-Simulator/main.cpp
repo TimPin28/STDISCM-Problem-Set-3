@@ -40,6 +40,24 @@ public:
         vy = -velocity * sin(rad);
     }
 
+    Particle(double x, double y, double radius) {
+        x = x;
+        y = y;
+        radius = radius;
+    }
+    Particle() {
+		x = 0;
+		y = 0;
+		radius = 0;
+	}
+
+    // Serialize the object into a byte stream
+    std::vector<char> serialize() const {
+        std::vector<char> data(sizeof(this));
+        memcpy(data.data(), this, sizeof(this));
+        return data;
+    }
+
     void updatePosition(double deltaTime, double simWidth, double simHeight) {
         double nextX = x + vx * deltaTime;
         double nextY = y + vy * deltaTime;
@@ -130,6 +148,32 @@ SOCKET acceptAndIdentifyClient(SOCKET serverSocket) {
     std::cout << "Client connected." << std::endl;
     return client;
 }
+
+// Function to send a serialized object over TCP
+void send_object(const Particle& obj, SOCKET serverSocket) {
+    auto serializedData = obj.serialize();
+    send(serverSocket, serializedData.data(), serializedData.size(), 0);
+}
+
+void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSocket) {
+    // Assume we're sending a 2D array (for simplicity) where each row has 3 elements (x, y, radius)
+    size_t numParticles = particles.size();
+    size_t numElements = 3;  // x, y, radius
+    double data[10][3];  // Assuming we have a maximum of 10 particles for demonstration
+
+    for (size_t i = 0; i < numParticles; ++i) {
+        data[i][0] = particles[i].x;
+        data[i][1] = particles[i].y;
+        data[i][2] = particles[i].radius;
+    }
+
+    // Send the number of particles first
+    send(serverSocket, (char*)&numParticles, sizeof(numParticles), 0);
+
+    // Then send the particle data
+    send(serverSocket, (char*)data, sizeof(data), 0);
+}
+
 
 int main() {
 
@@ -614,11 +658,20 @@ int main() {
         //Maybe send particles
         //send_particles(particles, serverSocket);
 
-        // send a hello message to client
-        int message = 2012;
-        if (send(spriteClient, (char*)&message, sizeof(message), 0) == SOCKET_ERROR) {
-            /*std::cerr << "Send failed." << std::endl;*/
-        }
+        if (spriteClient != INVALID_SOCKET && !particles.empty()) {
+
+            send_particle_data(particles, spriteClient);
+            
+		}
+
+        //// send to client
+        //Particle particle(0, 1, 1);
+        //
+        //send_object(particle, spriteClient);
+
+        //if (send(spriteClient, (char*)&particle, sizeof(Particle), 0) == SOCKET_ERROR) {
+        //    std::cerr << "Send failed." << std::endl;
+        //}
 
         //Draw particles
         for (const auto& particle : particles) {
