@@ -23,10 +23,6 @@ using namespace std;
 #pragma comment(lib, "ws2_32.lib")
 constexpr int BUFFER_SIZE = 1024;
 
-std::atomic<int> nextParticleIndex(0); // Global counter for the next particle to update
-std::condition_variable cv;
-std::mutex cv_m;
-bool ready = false; // Flag to signal threads to start processing
 std::mutex particleMutex;  // Mutex for thread-safe access to particles
 
 class Particle {
@@ -44,13 +40,6 @@ public:
 
     // Default constructor
     Particle() : x(0), y(0), radius(0) {}
-
-    // Deserialize the byte stream into an object
-    static Particle deserialize(const std::vector<char>& data) {
-        Particle particle;
-        memcpy(&particle, data.data(), sizeof(particle));
-        return particle;
-    }
 };
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
@@ -81,12 +70,6 @@ void drawGrid(sf::RenderWindow& window, int gridSize) {
         };
         window.draw(line, 2, sf::Lines);
     }
-}
-
-void startFrame() {
-    nextParticleIndex.store(0); // Reset the counter for the next frame
-    ready = true;
-    cv.notify_all();
 }
 
 vector<Particle> receive_particle_data(SOCKET clientSocket) {
@@ -171,7 +154,7 @@ int main() {
     // Connect to the server
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("10.147.17.27");  // Server IP address
+    serverAddr.sin_addr.s_addr = inet_addr("192.168.254.105");  // Server IP address
     serverAddr.sin_port = htons(12345);
 
     if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
@@ -190,11 +173,6 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-
-    // Print the received particles
-    /*for (const auto& particle : particles) {
-        std::cout << "Particle: x=" << particle.x << ", y=" << particle.y << ", radius=" << particle.radius << std::endl;
-    }*/
 
     double deltaTime = 1; // Time step for updating particle positions
 
@@ -248,9 +226,6 @@ int main() {
     spriteSendThread.detach();
 
     while (window.isOpen()) {
-        // Receive particles from the server in new delta time
-        // particles = receive_particles(clientSocket);
-
         sf::Event event;
         while (window.pollEvent(event)) {
             gui.handleEvent(event);
@@ -306,9 +281,6 @@ int main() {
             fpsUpdateClock.restart(); // Reset the fpsUpdateClock for the next 0.5-second interval
         }
 
-        startFrame(); // Signal threads to start processing
-        ready = false; // Threads are now processing
-
         // Access shared particles data safely
         {
             std::lock_guard<std::mutex> guard(particleMutex);
@@ -320,7 +292,7 @@ int main() {
                 window.draw(shape);
             }
         }
-
+        
         window.draw(sprite); // Draw the sprite in the window
 
         // Draw the FPS counter in a fixed position
