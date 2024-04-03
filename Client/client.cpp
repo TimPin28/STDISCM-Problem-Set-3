@@ -188,7 +188,8 @@ int main() {
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
 
     while (window.isOpen()) {
-        nextParticleIndex.store(0); // Reset the counter for the next frame
+        // Receive particles from the server in new delta time
+        particles = receive_particles(clientSocket);
 
         sf::Event event;
         while (window.pollEvent(event)) {
