@@ -4,7 +4,7 @@
 
 ## Introduction
 
-This Particle Simulator is a graphical application designed to simulate the behavior of particles within a confined space. It uses SFML for rendering graphics and TGUI for the user interface, providing an interactive environment where users can add particles and observe particle dynamics including collisions and reflections. Building upon the Particle Simulator: Explorer Mode, this expansion utilizes a distributed approach that splits the Developer and Explorer Mode into separate applications. This uses the Winsock2 library to handle the network.
+This Particle Simulator is a graphical application designed to simulate the behavior of particles within a confined space. It uses SFML for rendering graphics and TGUI for the user interface, providing an interactive environment where users can add particles and observe particle dynamics including collisions and reflections. Building upon the Particle Simulator: Explorer Mode, this expansion utilizes a distributed approach that splits the Developer and Explorer Mode into separate applications. Users may create up to 3 instances of the Explorer application. This uses the Winsock2 library to handle the network.
 
 ## Requirements
 
@@ -45,7 +45,7 @@ After launching the Distributed Particle Simulator, you will be presented with a
   - Form 3: Input a range of velocities, and particles will be added with velocities distributed within this range.
 
 ### Explorer Application: Traversing with the Sprite
--The user can traverse through the canvas with the use of the W,A,S,D keys or arrow keys.
+- The user can traverse through the canvas with the use of the W,A,S,D keys or arrow keys.
 
 ### Simulation Control
 - Particles move automatically and interact with boundaries. You can only dynamically add particles in Developer Application.
