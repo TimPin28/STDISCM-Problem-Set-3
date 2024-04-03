@@ -70,7 +70,6 @@ public:
         x += vx * deltaTime;
         y += vy * deltaTime;
     }
-
 };
 
 void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight, SOCKET serverSocket) {
@@ -84,21 +83,9 @@ void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, do
             if (index >= particles.size()) {
                 break;
             }
-            particles[index].updatePosition(deltaTime, simWidth, simHeight);
-            //send(serverSocket, (char*)&particles[index], sizeof(Particle), 0);
+            particles[index].updatePosition(deltaTime, simWidth, simHeight);           
         }
     }
-}
-
-// Function to send an array of particles over TCP
-void send_particles(const std::vector<Particle>& particles, SOCKET serverSocket) {
-    // Send the number of particles first
-    int numParticles = 10;
-    send(serverSocket, (char*)&numParticles, sizeof(numParticles), 0);
-
-    /*for (const auto& particle : particles) {
-        send(serverSocket, (char*)&particle, sizeof(Particle), 0);
-    }*/
 }
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
@@ -149,12 +136,6 @@ SOCKET acceptAndIdentifyClient(SOCKET serverSocket) {
     return client;
 }
 
-// Function to send a serialized object over TCP
-void send_object(const Particle& obj, SOCKET serverSocket) {
-    auto serializedData = obj.serialize();
-    send(serverSocket, serializedData.data(), serializedData.size(), 0);
-}
-
 void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSocket) {
     size_t numParticles = particles.size();
 
@@ -175,7 +156,6 @@ void send_particle_data(const std::vector<Particle>& particles, SOCKET serverSoc
 }
 
 int main() {
-
     // Initialize Winsock
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -216,12 +196,10 @@ int main() {
     SOCKET spriteClient = INVALID_SOCKET;
 
     // Accept two client connections
-    std::thread connectH([&]() {
+    std::thread connectClient1([&]() {
         spriteClient = acceptAndIdentifyClient(serverSocket);
         });
-
-
-    connectH.detach();
+    connectClient1.detach();
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -610,10 +588,6 @@ int main() {
     float scale = desiredWidth / textureSize.x;
     sprite.setScale(scale, scale); // Apply scaling
 
-    // Views for developer 
-    sf::View developerView(sf::FloatRect(0, 0, 1280, 720));
-
-
     // Create worker threads
     for (size_t i = 0; i < threadCount; ++i) {
         threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverSocket);
@@ -654,23 +628,9 @@ int main() {
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
-        //Maybe send particles
-        //send_particles(particles, serverSocket);
-
         if (spriteClient != INVALID_SOCKET && !particles.empty()) {
-
-            send_particle_data(particles, spriteClient);
-            
+            send_particle_data(particles, spriteClient);          
 		}
-
-        //// send to client
-        //Particle particle(0, 1, 1);
-        //
-        //send_object(particle, spriteClient);
-
-        //if (send(spriteClient, (char*)&particle, sizeof(Particle), 0) == SOCKET_ERROR) {
-        //    std::cerr << "Send failed." << std::endl;
-        //}
 
         //Draw particles
         for (const auto& particle : particles) {
@@ -680,25 +640,16 @@ int main() {
             window.draw(shape);
         }
 
-        if (explorerMode) {
-            sf::Vector2u textureSize = spriteTexture.getSize();
-            float desiredWidth = 1.f; // Set width
-            float scale = desiredWidth / textureSize.x;
-            sprite.setScale(scale, scale); // Apply scaling
-        }
-        else {
-            sf::Vector2u textureSize = spriteTexture.getSize();
-            float desiredWidth = 5.f; // Set width
-            float scale = desiredWidth / textureSize.x;
-            sprite.setScale(scale, scale); // Apply scaling
-            gui.draw(); // Draw the GUI
-        }
-
+        sf::Vector2u textureSize = spriteTexture.getSize();
+        float desiredWidth = 5.f; // Set width
+        float scale = desiredWidth / textureSize.x;
+        sprite.setScale(scale, scale); // Apply scaling
+        gui.draw(); // Draw the GUI
+   
         window.draw(sprite); // Draw the sprite in the window
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
         window.draw(fpsText); // Draw the FPS counter on the window
-        //window.draw(sprite); // Draw the sprite in the window
         window.display();
     }
 
