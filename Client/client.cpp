@@ -109,7 +109,6 @@ vector<Particle> receive_particle_data(SOCKET clientSocket) {
     return receivedParticles;
 }
 
-
 void updateParticlesFromServer(SOCKET clientSocket, std::vector<Particle>& particles) {
     while (true) {
         std::vector<Particle> newParticles = receive_particle_data(clientSocket);
@@ -136,14 +135,14 @@ void sendSpriteData(SOCKET serverSocket, const sf::Sprite& sprite) {
 }
 
 int main() {
-    //// Initialize Winsock
+    // Initialize Winsock
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         cerr << "WSAStartup failed." << endl;
         return 1;
     }
 
-    //// Create socket
+    // Create socket
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == INVALID_SOCKET) {
         cerr << "Socket creation failed." << endl;

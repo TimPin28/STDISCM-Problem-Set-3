@@ -170,15 +170,16 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
         }
         else if (bytesReceived == 0) {
             std::cout << "Client disconnected." << std::endl;
+            sprite.setPosition(-10000, -10000); // Move the sprite off-screen
             break;
         }
         else {
             std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+            sprite.setPosition(-10000, -10000); // Move the sprite off-screen
             break;
         }
     }
 }
-
 
 int main() {
     // Initialize Winsock
@@ -218,13 +219,20 @@ int main() {
     }
 
     // Define SOCKET variables outside the threads
+    SOCKET spriteClient1 = INVALID_SOCKET;
+    SOCKET spriteClient2 = INVALID_SOCKET;
     SOCKET spriteClient = INVALID_SOCKET;
 
     // Accept two client connections
     std::thread connectClient1([&]() {
-        spriteClient = acceptAndIdentifyClient(serverSocket);
+        spriteClient1 = acceptAndIdentifyClient(serverSocket);
         });
     connectClient1.detach();
+
+    std::thread connectClient2([&]() {
+        spriteClient2 = acceptAndIdentifyClient(serverSocket);
+        });
+    connectClient2.detach();
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -605,7 +613,7 @@ int main() {
     // Initialize sprite
     sf::Sprite sprite;
     sprite.setTexture(spriteTexture);
-    sprite.setPosition(windowSize.x / 2.f, windowSize.y / 2.f); // Starting position
+    sprite.setPosition(-10000, -10000); // Starting position
 
     // Scale the sprite
     sf::Vector2u textureSize = spriteTexture.getSize();
@@ -653,13 +661,14 @@ int main() {
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
-        if (spriteClient != INVALID_SOCKET && !particles.empty()) {
-            send_particle_data(particles, spriteClient);          
+        if (spriteClient1 != INVALID_SOCKET && !particles.empty()) {
+            send_particle_data(particles, spriteClient1);
 		}
 
-        if (spriteClient != INVALID_SOCKET) {
-            std::thread receiveThread(receiveSpriteData, spriteClient, std::ref(sprite));
+        if (spriteClient1 != INVALID_SOCKET) {
+            std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite));
             receiveThread.detach();
+            //window.draw(sprite);
         }
 
         //Draw particles
