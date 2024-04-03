@@ -79,7 +79,7 @@ vector<Particle> receive_particle_data(SOCKET clientSocket) {
     // First, receive the number of particles
     int bytesReceived = recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
     if (bytesReceived < 0) {
-        cerr << "Failed to receive number of particles or connection closed." << endl;
+        cerr << "No particles or connection closed." << endl;
         return receivedParticles;
     }
 

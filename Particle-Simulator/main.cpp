@@ -168,13 +168,8 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
             // Update the sprite's position based on received data
             sprite.setPosition(data.x, data.y);
         }
-        else if (bytesReceived == 0) {
-            std::cout << "Client disconnected." << std::endl;
-            sprite.setPosition(-10000, -10000); // Move the sprite off-screen
-            break;
-        }
         else {
-            std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+            std::cout << "Client disconnected." << std::endl;
             sprite.setPosition(-10000, -10000); // Move the sprite off-screen
             break;
         }
@@ -221,7 +216,7 @@ int main() {
     // Define SOCKET variables outside the threads
     SOCKET spriteClient1 = INVALID_SOCKET;
     SOCKET spriteClient2 = INVALID_SOCKET;
-    SOCKET spriteClient = INVALID_SOCKET;
+    SOCKET spriteClient3 = INVALID_SOCKET;
 
     // Load sprite texture
     sf::Texture spriteTexture;
@@ -230,16 +225,28 @@ int main() {
         std::cerr << "Could not load sprite texture\n";
         return -1;
     }
-    // Initialize sprite
-    sf::Sprite sprite1;
-    sprite1.setTexture(spriteTexture);
-    sprite1.setPosition(-10000, -10000); // Starting position
 
-    // Scale the sprite
+    // Initialize sprites
+    sf::Sprite sprite1;
+    sf::Sprite sprite2;
+    sf::Sprite sprite3;
+
+    sprite1.setTexture(spriteTexture);
+    sprite2.setTexture(spriteTexture);
+    sprite3.setTexture(spriteTexture);
+
+    //Hide Sprites
+    sprite1.setPosition(-10000, -10000); 
+    sprite2.setPosition(-10000, -10000);
+    sprite3.setPosition(-10000, -10000);
+
+    // Scale the sprites
     sf::Vector2u textureSize = spriteTexture.getSize();
     float desiredWidth = 5.f; // Set width
     float scale = desiredWidth / textureSize.x;
-    sprite1.setScale(scale, scale); // Apply scaling
+    sprite1.setScale(scale, scale); 
+    sprite2.setScale(scale, scale);
+    sprite3.setScale(scale, scale);
 
     // Accept 3 client connections
     std::thread connectClient1([&]() {
@@ -253,8 +260,21 @@ int main() {
 
     std::thread connectClient2([&]() {
         spriteClient2 = acceptAndIdentifyClient(serverSocket);
+
+        //Thread for receiving sprite data
+        std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
+        receiveThread.detach();
         });
     connectClient2.detach();
+
+    std::thread connectClient3([&]() {
+        spriteClient3 = acceptAndIdentifyClient(serverSocket);
+
+        //Thread for receiving sprite data
+        std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
+        receiveThread.detach();
+        });
+    connectClient3.detach();
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -676,11 +696,16 @@ int main() {
         }
 
         gui.draw(); // Draw the GUI
-   
-        window.draw(sprite1); // Draw the sprite in the window
+
+        // Draw the sprites in the window
+        window.draw(sprite1); 
+        window.draw(sprite2);
+        window.draw(sprite3);
+
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
         window.draw(fpsText); // Draw the FPS counter on the window
+
         window.display();
     }
 
