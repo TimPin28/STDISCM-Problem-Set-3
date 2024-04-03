@@ -30,7 +30,7 @@ class Particle {
 public:
     double x, y; // Position
     double vx, vy; // Velocity
-    double radius;
+    double radius; // Radius
 
     Particle(double x, double y, double angle, double velocity, double radius)
         : x(x), y(y), radius(radius) {
@@ -55,7 +55,7 @@ public:
 
 };
 
-void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight) {
+void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight, SOCKET serverSocket) {
     while (!done) {
         std::unique_lock<std::mutex> lk(cv_m);
         cv.wait(lk, [] { return ready || done; });
@@ -67,9 +67,18 @@ void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, do
                 break;
             }
             particles[index].updatePosition(deltaTime, simWidth, simHeight);
+            send(serverSocket, (char*)&particles[index], sizeof(Particle), 0);
         }
     }
 }
+
+//// Function to send an array of particles over TCP
+//void send_particles(const std::vector<Particle>& particles, SOCKET serverSocket) {
+//    for (const auto& particle : particles) {
+//        // Send the particle as raw bytes
+//        send(serverSocket, (char*)&particle, sizeof(Particle), 0);
+//    }
+//}
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
     int width = window.getSize().x;
@@ -147,7 +156,6 @@ int main() {
 
     std::cout << "Waiting for connections..." << std::endl;
 
-
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
     sf::RenderWindow window(sf::VideoMode(windowSize.x, windowSize.y), "Particle Simulator");
@@ -155,7 +163,6 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-
     std::vector<Particle> particles;
 
     double deltaTime = 1; // Time step for updating particle positions
@@ -547,7 +554,7 @@ int main() {
 
     // Create worker threads
     for (size_t i = 0; i < threadCount; ++i) {
-        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0);
+        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverSocket);
     }
 
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));

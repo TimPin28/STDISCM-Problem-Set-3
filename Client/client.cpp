@@ -33,47 +33,19 @@ bool explorerMode = false; // Flag to enable explorer mode
 class Particle {
 public:
     double x, y; // Position
-    double vx, vy; // Velocity
-    double radius;
+    double radius; // Radius
 
-    Particle(double x, double y, double angle, double velocity, double radius)
+    Particle(double x, double y, double angle, double radius)
         : x(x), y(y), radius(radius) {
         // Convert angle to radians and calculate velocity components
-        double rad = angle * (M_PI / 180.0);
+        /*double rad = angle * (M_PI / 180.0);
         vx = velocity * cos(rad);
-        vy = -velocity * sin(rad);
+        vy = -velocity * sin(rad);*/
     }
 
-    void updatePosition(double deltaTime, double simWidth, double simHeight) {
-        double nextX = x + vx * deltaTime;
-        double nextY = y + vy * deltaTime;
-
-        // Boundary collision
-        if (nextX - radius < 0 || nextX + radius > simWidth) vx = -vx;
-        if (nextY - radius < 0 || nextY + radius > simHeight) vy = -vy;
-
-        // Update position
-        x += vx * deltaTime;
-        y += vy * deltaTime;
-    }
-
+    // Default constructor
+    Particle() : x(0), y(0), radius(0) {}
 };
-
-void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight) {
-    while (!done) {
-        std::unique_lock<std::mutex> lk(cv_m);
-        cv.wait(lk, [] { return ready || done; });
-        lk.unlock();
-
-        while (true) {
-            int index = nextParticleIndex.fetch_add(1);
-            if (index >= particles.size()) {
-                break;
-            }
-            particles[index].updatePosition(deltaTime, simWidth, simHeight);
-        }
-    }
-}
 
 void drawGrid(sf::RenderWindow& window, int gridSize) {
     int width = window.getSize().x;
@@ -111,36 +83,51 @@ void startFrame() {
     cv.notify_all();
 }
 
+// Function to receive particles over TCP
+std::vector<Particle> receive_particles(SOCKET clientSocket) {
+    std::vector<Particle> particles;
+    while (true) {
+        Particle particle;
+        // Receive raw bytes representing a Particle object
+        int bytes_received = recv(clientSocket, (char*)&particle, sizeof(Particle), 0);
+        if (bytes_received <= 0) {
+            break; // Break if no more data or error occurs
+        }
+        particles.push_back(particle);
+    }
+    return particles;
+}
+
 int main() {
     //// Initialize Winsock
-    //WSADATA wsaData;
-    //if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-    //    cerr << "WSAStartup failed." << endl;
-    //    return 1;
-    //}
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        cerr << "WSAStartup failed." << endl;
+        return 1;
+    }
 
     //// Create socket
-    //SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    //if (clientSocket == INVALID_SOCKET) {
-    //    cerr << "Socket creation failed." << endl;
-    //    WSACleanup();
-    //    return 1;
-    //}
+    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket == INVALID_SOCKET) {
+        cerr << "Socket creation failed." << endl;
+        WSACleanup();
+        return 1;
+    }
 
-    //// Connect to the server
-    //sockaddr_in serverAddr;
-    //serverAddr.sin_family = AF_INET;
-    //serverAddr.sin_addr.s_addr = inet_addr("10.147.17.27");  // Server IP address
-    //serverAddr.sin_port = htons(12345);
+    // Connect to the server
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = inet_addr("192.168.254.105");  // Server IP address
+    serverAddr.sin_port = htons(12345);
 
-    //if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
-    //    cerr << "Connection failed." << WSAGetLastError() << endl;
-    //    closesocket(clientSocket);
-    //    WSACleanup();
-    //    return 1;
-    //}
+    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+        cerr << "Connection failed." << WSAGetLastError() << endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return 1;
+    }
 
-    //cout << "Connected to server." << endl;
+    cout << "Connected to server." << endl;
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -149,8 +136,12 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
+    std::vector<Particle> particles = receive_particles(clientSocket);
 
-    std::vector<Particle> particles;
+    // Print the received particles
+    for (const auto& particle : particles) {
+        std::cout << "Particle: x=" << particle.x << ", y=" << particle.y << ", radius=" << particle.radius << std::endl;
+    }
 
     double deltaTime = 1; // Time step for updating particle positions
 
@@ -194,14 +185,7 @@ int main() {
     sf::View explorerView(sf::FloatRect(0, 0, 33.f, 19.f));
     explorerView.setCenter(windowSize.x / 2.f, windowSize.y / 2.f);
 
-    // Create worker threads
-    for (size_t i = 0; i < threadCount; ++i) {
-        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0);
-    }
-
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
-
-    explorerMode = true; 
 
     while (window.isOpen()) {
         nextParticleIndex.store(0); // Reset the counter for the next frame
@@ -215,7 +199,7 @@ int main() {
             }
 
             // Handle sprite movement if in explorer mode
-            if (explorerMode && event.type == sf::Event::KeyPressed) {
+            if (event.type == sf::Event::KeyPressed) {
                 float moveSpeed = 2.0f; // Adjust speed
                 if (event.key.code == sf::Keyboard::W || event.key.code == sf::Keyboard::Up) {
                     if (sprite.getPosition().y > 0.00) {
@@ -236,9 +220,7 @@ int main() {
                     if (sprite.getPosition().x < 1280.00) {
                         sprite.move(moveSpeed, 0); // Move right
                     }
-                }
-
-                
+                }            
             }
         }
 
@@ -246,12 +228,10 @@ int main() {
         sf::Vector2f spritePosition = sprite.getPosition();
         explorerView.setCenter(spritePosition);
         window.setView(explorerView);
-
         window.clear();
 
         // Draw the grid as the background
         drawGrid(window, 50);
-
 
         // Compute framerate
         float currentTime = clock.restart().asSeconds();
@@ -264,6 +244,7 @@ int main() {
             fpsText.setString(ss.str());
             fpsUpdateClock.restart(); // Reset the fpsUpdateClock for the next 0.5-second interval
         }
+
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
@@ -275,19 +256,11 @@ int main() {
             window.draw(shape);
         }
 
-        
-        sf::Vector2u textureSize = spriteTexture.getSize();
-        float desiredWidth = 1.f; // Set width
-        float scale = desiredWidth / textureSize.x;
-        sprite.setScale(scale, scale); // Apply scaling
-        
-        
-
         window.draw(sprite); // Draw the sprite in the window
+
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
         window.draw(fpsText); // Draw the FPS counter on the window
-        //window.draw(sprite); // Draw the sprite in the window
         window.display();
     }
 
