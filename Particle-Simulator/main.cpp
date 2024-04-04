@@ -699,9 +699,9 @@ int main() {
         });
 
     // Create worker threads
-    for (size_t i = 0; i < threadCount; ++i) {
-        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverParticleSocket);
-    }
+    //for (size_t i = 0; i < threadCount; ++i) {
+    //    threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverParticleSocket);
+    //}
 
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
 
@@ -737,6 +737,11 @@ int main() {
 
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
+
+        for (auto& particle : particles) {
+            // Single Threaded Version
+            particle.updatePosition(deltaTime, 1280.0, 720.0);
+        }
 
         //Thread?
         if (spriteClient1 != INVALID_SOCKET) {   
