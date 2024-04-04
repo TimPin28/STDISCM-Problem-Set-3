@@ -19,7 +19,7 @@
 
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
-#define SERVER_IP "192.168.1.18"
+#define SERVER_IP "192.168.1.19"
 
 
 using namespace std;
@@ -28,6 +28,15 @@ using namespace std;
 constexpr int BUFFER_SIZE = 1024;
 
 std::mutex particleMutex;  // Mutex for thread-safe access to particles
+
+// Global or shared mutex for sprite data
+std::mutex spriteDataMutex;
+struct SpriteData {
+    float x, y;
+};
+
+SpriteData sprite1Buffer;
+SpriteData sprite2Buffer;
 
 class Particle {
 public:
@@ -136,52 +145,28 @@ void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     }
 }
 
-void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1){//, sf::Sprite& sprite2) {
-    struct SpriteData {
-        float x, y;
-    };
+void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1) {
+    SpriteData newData;
 
-    // Data for sprite1
-    SpriteData data1;
-
-    // Receive data for sprite1
-    int bytesReceived1 = recv(clientSocket, (char*)&data1, sizeof(data1), 0);
-
-    if (bytesReceived1 == sizeof(data1)) {
-        // Update sprite1's position
-        sprite1.setPosition(data1.x, data1.y);
-        //print sprite1 position
-        std::cout << "Sprite1 position: " << data1.x << ", " << data1.y << std::endl;
+    while (true) {
+        int bytesReceived = recv(clientSocket, (char*)&newData, sizeof(newData), 0);
+        if (bytesReceived > 0) {
+            std::lock_guard<std::mutex> lock(spriteDataMutex);
+            // Update the buffer with new data
+            sprite1Buffer = newData;
+        }
+        else if (bytesReceived == 0) {
+            std::cout << "Client disconnected." << std::endl;
+            break;
+        }
+        else {
+            std::cerr << "Error receiving sprite data." << std::endl;
+        }
     }
-    else if (bytesReceived1 == 0) {
-        // Client disconnected
-        std::cout << "Client disconnected." << std::endl;
-    }
-    else {
-        // Error or incomplete data received
-        std::cerr << "Error receiving sprite data for sprite1." << std::endl;
-    }
+}
 
-    // Data for sprite2
-    //SpriteData data2;
-
-    //// Receive data for sprite2
-    //int bytesReceived2 = recv(clientSocket, (char*)&data2, sizeof(data2), 0);
-
-    //if (bytesReceived2 == sizeof(data2)) {
-    //    // Update sprite2's position
-    //    sprite2.setPosition(data2.x, data2.y);
-    //    //print sprite2 position
-    //    std::cout << "Sprite2 position: " << data2.x << ", " << data2.y << std::endl;
-    //}
-    //else if (bytesReceived2 == 0) {
-    //    // Client disconnected
-    //    std::cout << "Client disconnected." << std::endl;
-    //}
-    //else {
-    //    // Error or incomplete data received
-    //    std::cerr << "Error receiving sprite data for sprite2." << std::endl;
-    //}
+void updateSpriteFromData(sf::Sprite& sprite, const SpriteData& data) {
+    sprite.setPosition(data.x, data.y);
 }
 
 int main() {
@@ -305,16 +290,13 @@ int main() {
     std::thread listenerThread(updateParticlesFromServer, clientParticleSocket, std::ref(particles));
     listenerThread.detach();  // Detach the thread
 
-    std::thread spriteSendThread([&]() { sendSpriteData(clientSpriteSocket, sprite1); });
-    spriteSendThread.detach();
+    std::thread spriteReceiveThread(receiveSpriteData, clientSpriteSocket, std::ref(sprite1));
+    spriteReceiveThread.detach();
 
     std::thread spriteReceiveThread([&]() {
         while (true) {
-<<<<<<< Updated upstream
-            receiveSpriteData(clientSocket, sprite2);//, sprite3);
-=======
-			receiveSpriteData(clientSpriteSocket, sprite2, sprite3);
->>>>>>> Stashed changes
+            receiveSpriteData(clientSpriteSocket, sprite2);//, sprite3);
+
 		}
 	});
     spriteReceiveThread.detach();
@@ -373,6 +355,13 @@ int main() {
             ss << "FPS: " << std::fixed << fps;
             fpsText.setString(ss.str());
             fpsUpdateClock.restart(); // Reset the fpsUpdateClock for the next 0.5-second interval
+        }
+
+        // Update sprite positions from buffered data
+        {
+            std::lock_guard<std::mutex> lock(spriteDataMutex);
+            updateSpriteFromData(sprite1, sprite1Buffer);
+            // If you have sprite2 and sprite3, update them similarly
         }
 
         // Access shared particles data safely
