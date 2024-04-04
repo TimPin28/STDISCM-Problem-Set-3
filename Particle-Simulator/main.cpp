@@ -124,10 +124,10 @@ void startFrame() {
     cv.notify_all();
 }
 
-// Function to accept and identify client type
-SOCKET acceptAndIdentifyClient(SOCKET serverSocket) {
+// Function to accept client connections
+SOCKET acceptClientConnections(SOCKET clientSocketType) {
     SOCKET client;
-    client = accept(serverSocket, nullptr, nullptr);
+    client = accept(clientSocketType, nullptr, nullptr);
     if (client == INVALID_SOCKET) {
         std::cerr << "Accept failed." << std::endl;
         return client;
@@ -206,39 +206,72 @@ int main() {
         return 1;
     }
 
-    // Create socket
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket == INVALID_SOCKET) {
+    // Server sockets for sprites
+    SOCKET serverSpriteSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSpriteSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed." << std::endl;
         WSACleanup();
         return 1;
     }
 
-    // Bind the socket
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(12345);
+    // Server socket for particles
+    SOCKET serverParticleSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverParticleSocket == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed." << std::endl;
+        WSACleanup();
+        return 1;
+    }
 
-    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+    // Bind the sprite socket
+    sockaddr_in serverSpriteAddr;
+    serverSpriteAddr.sin_family = AF_INET;
+    serverSpriteAddr.sin_addr.s_addr = INADDR_ANY;
+    serverSpriteAddr.sin_port = htons(12345);
+
+    if (bind(serverSpriteSocket, reinterpret_cast<sockaddr*>(&serverSpriteAddr), sizeof(serverSpriteAddr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed." << std::endl;
-        closesocket(serverSocket);
+        closesocket(serverSpriteSocket);
         WSACleanup();
         return 1;
     }
 
-    // Listen for incoming connections
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-        std::cerr << "Listen failed." << std::endl;
-        closesocket(serverSocket);
+    // Bind the particle socket
+    sockaddr_in serverParticleAddr;
+    serverParticleAddr.sin_family = AF_INET;
+    serverParticleAddr.sin_addr.s_addr = INADDR_ANY;
+    serverParticleAddr.sin_port = htons(12346);
+
+    if (bind(serverParticleSocket, reinterpret_cast<sockaddr*>(&serverParticleAddr), sizeof(serverParticleAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed." << std::endl;
+        closesocket(serverSpriteSocket);
         WSACleanup();
         return 1;
     }
+
+    // Listen for incoming connections for sprites 
+    if (listen(serverSpriteSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr << "Listen failed." << std::endl;
+        closesocket(serverSpriteSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Listen for incoming connections for particles
+    if (listen(serverParticleSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr << "Listen failed." << std::endl;
+        closesocket(serverParticleSocket);
+        WSACleanup();
+		return 1;
+	}
 
     // Define SOCKET variables outside the threads
     SOCKET spriteClient1 = INVALID_SOCKET;
     SOCKET spriteClient2 = INVALID_SOCKET;
     SOCKET spriteClient3 = INVALID_SOCKET;
+
+    SOCKET particleClient1 = INVALID_SOCKET;
+    SOCKET particleClient2 = INVALID_SOCKET;
+    SOCKET particleClient3 = INVALID_SOCKET;
 
     // Load sprite texture
     sf::Texture spriteTexture;
@@ -272,8 +305,8 @@ int main() {
 
     // Accept 3 client connections
     std::thread connectClient1([&]() {
-        spriteClient1 = acceptAndIdentifyClient(serverSocket);
-
+        spriteClient1 = acceptClientConnections(serverSpriteSocket);
+        particleClient1 = acceptClientConnections(serverParticleSocket);
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
         receiveThread.detach();
@@ -281,8 +314,8 @@ int main() {
     connectClient1.detach();
 
     std::thread connectClient2([&]() {
-        spriteClient2 = acceptAndIdentifyClient(serverSocket);
-
+        spriteClient2 = acceptClientConnections(serverSpriteSocket);
+        particleClient2 = acceptClientConnections(serverParticleSocket);
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
         receiveThread.detach();
@@ -290,8 +323,8 @@ int main() {
     connectClient2.detach();
 
     std::thread connectClient3([&]() {
-        spriteClient3 = acceptAndIdentifyClient(serverSocket);
-
+        spriteClient3 = acceptClientConnections(serverSpriteSocket);
+        particleClient3 = acceptClientConnections(serverParticleSocket);
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
         receiveThread.detach();
@@ -667,7 +700,7 @@ int main() {
 
     // Create worker threads
     for (size_t i = 0; i < threadCount; ++i) {
-        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverSocket);
+        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverParticleSocket);
     }
 
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
@@ -709,16 +742,16 @@ int main() {
         if (spriteClient1 != INVALID_SOCKET && !particles.empty()) {          
             //std::thread sendThread(send_particle_data, particles, spriteClient1);
             //sendThread.detach();
-            send_particle_data(particles, spriteClient1);
+            send_particle_data(particles, particleClient1);
             sendSpriteData(spriteClient1, sprite2, sprite3);
 		}
         if (spriteClient2 != INVALID_SOCKET && !particles.empty()) {
-            send_particle_data(particles, spriteClient2);
-            sendSpriteData(spriteClient1, sprite1, sprite3);
+            send_particle_data(particles, particleClient2);
+            sendSpriteData(spriteClient2, sprite1, sprite3);
         }
         if (spriteClient3 != INVALID_SOCKET && !particles.empty()) {
-            send_particle_data(particles, spriteClient3);
-            sendSpriteData(spriteClient1, sprite1, sprite2);
+            send_particle_data(particles, particleClient3);
+            sendSpriteData(spriteClient3, sprite1, sprite2);
         }
 
         //Draw particles

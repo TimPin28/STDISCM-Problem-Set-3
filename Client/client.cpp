@@ -132,7 +132,7 @@ void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     }
 }
 
-void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
+void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1){//, sf::Sprite& sprite2) {
     struct SpriteData {
         float x, y;
     };
@@ -159,25 +159,25 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& spr
     }
 
     // Data for sprite2
-    SpriteData data2;
+    //SpriteData data2;
 
-    // Receive data for sprite2
-    int bytesReceived2 = recv(clientSocket, (char*)&data2, sizeof(data2), 0);
+    //// Receive data for sprite2
+    //int bytesReceived2 = recv(clientSocket, (char*)&data2, sizeof(data2), 0);
 
-    if (bytesReceived2 == sizeof(data2)) {
-        // Update sprite2's position
-        sprite2.setPosition(data2.x, data2.y);
-        //print sprite2 position
-        std::cout << "Sprite2 position: " << data2.x << ", " << data2.y << std::endl;
-    }
-    else if (bytesReceived2 == 0) {
-        // Client disconnected
-        std::cout << "Client disconnected." << std::endl;
-    }
-    else {
-        // Error or incomplete data received
-        std::cerr << "Error receiving sprite data for sprite2." << std::endl;
-    }
+    //if (bytesReceived2 == sizeof(data2)) {
+    //    // Update sprite2's position
+    //    sprite2.setPosition(data2.x, data2.y);
+    //    //print sprite2 position
+    //    std::cout << "Sprite2 position: " << data2.x << ", " << data2.y << std::endl;
+    //}
+    //else if (bytesReceived2 == 0) {
+    //    // Client disconnected
+    //    std::cout << "Client disconnected." << std::endl;
+    //}
+    //else {
+    //    // Error or incomplete data received
+    //    std::cerr << "Error receiving sprite data for sprite2." << std::endl;
+    //}
 }
 
 int main() {
@@ -282,7 +282,7 @@ int main() {
 
     std::thread spriteReceiveThread([&]() {
         while (true) {
-			receiveSpriteData(clientSocket, sprite2, sprite3);
+            receiveSpriteData(clientSocket, sprite2);//, sprite3);
 		}
 	});
     spriteReceiveThread.detach();
