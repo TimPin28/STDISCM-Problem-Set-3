@@ -145,7 +145,7 @@ void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     }
 }
 
-void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1) {
+void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite2) {
     SpriteData newData;
 
     while (true) {
@@ -153,7 +153,7 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1) {
         if (bytesReceived > 0) {
             std::lock_guard<std::mutex> lock(spriteDataMutex);
             // Update the buffer with new data
-            sprite1Buffer = newData;
+            sprite2Buffer = newData;
         }
         else if (bytesReceived == 0) {
             std::cout << "Client disconnected." << std::endl;
@@ -219,8 +219,6 @@ int main() {
         WSACleanup();
         return 1;
     }
-
-    
 
     cout << "Connected to server." << endl;
 
@@ -290,16 +288,11 @@ int main() {
     std::thread listenerThread(updateParticlesFromServer, clientParticleSocket, std::ref(particles));
     listenerThread.detach();  // Detach the thread
 
-    std::thread spriteReceiveThread(receiveSpriteData, clientSpriteSocket, std::ref(sprite1));
+    std::thread spriteReceiveThread(receiveSpriteData, clientSpriteSocket, std::ref(sprite2));
     spriteReceiveThread.detach();
 
-    std::thread spriteReceiveThread([&]() {
-        while (true) {
-            receiveSpriteData(clientSpriteSocket, sprite2);//, sprite3);
-
-		}
-	});
-    spriteReceiveThread.detach();
+    std::thread sendSpriteThread(sendSpriteData, clientSpriteSocket, std::ref(sprite1));
+    sendSpriteThread.detach();
 
     while (window.isOpen()) {
         sf::Event event;
@@ -360,7 +353,7 @@ int main() {
         // Update sprite positions from buffered data
         {
             std::lock_guard<std::mutex> lock(spriteDataMutex);
-            updateSpriteFromData(sprite1, sprite1Buffer);
+            updateSpriteFromData(sprite2, sprite2Buffer);
             // If you have sprite2 and sprite3, update them similarly
         }
 
