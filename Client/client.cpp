@@ -17,6 +17,10 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define SPRITE_PORT 12345
+#define PARTICLE_PORT 12346
+#define SERVER_IP "192.168.1.18"
+
 
 using namespace std;
 
@@ -188,26 +192,50 @@ int main() {
         return 1;
     }
 
-    // Create socket
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket == INVALID_SOCKET) {
-        cerr << "Socket creation failed." << endl;
+    // Create sprite socket
+    SOCKET clientSpriteSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSpriteSocket == INVALID_SOCKET) {
+        cerr << "Socket creation failed for sprite." << endl;
         WSACleanup();
         return 1;
     }
 
-    // Connect to the server
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("172.20.10.7");  // Server IP address
-    serverAddr.sin_port = htons(12345);
+    // Create Particle socket
+    SOCKET clientParticleSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientParticleSocket == INVALID_SOCKET) {
+        cerr << "Socket creation failed for particles." << endl;
+        WSACleanup();
+        return 1;
+    }
 
-    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+    // Server address for sprite connection
+    sockaddr_in serverSpriteAddr;
+    serverSpriteAddr.sin_family = AF_INET;
+    serverSpriteAddr.sin_addr.s_addr = inet_addr(SERVER_IP);  // Server IP address
+    serverSpriteAddr.sin_port = htons(SPRITE_PORT);
+
+    if (connect(clientSpriteSocket, reinterpret_cast<sockaddr*>(&serverSpriteAddr), sizeof(serverSpriteAddr)) == SOCKET_ERROR) {
         cerr << "Connection failed." << WSAGetLastError() << endl;
-        closesocket(clientSocket);
+        closesocket(clientSpriteSocket);
         WSACleanup();
         return 1;
     }
+
+    // Server address for particle connection
+    sockaddr_in serverParticleAddr;
+    serverParticleAddr.sin_family = AF_INET;
+    serverParticleAddr.sin_addr.s_addr = inet_addr(SERVER_IP);  // Server IP address
+    serverParticleAddr.sin_port = htons(PARTICLE_PORT);
+
+
+    if (connect(clientParticleSocket, reinterpret_cast<sockaddr*>(&serverParticleAddr), sizeof(serverParticleAddr)) == SOCKET_ERROR) {
+        cerr << "Connection failed." << WSAGetLastError() << endl;
+        closesocket(clientParticleSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    
 
     cout << "Connected to server." << endl;
 
@@ -274,15 +302,19 @@ int main() {
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
 
     std::vector<Particle> particles;
-    std::thread listenerThread(updateParticlesFromServer, clientSocket, std::ref(particles));
+    std::thread listenerThread(updateParticlesFromServer, clientParticleSocket, std::ref(particles));
     listenerThread.detach();  // Detach the thread
 
-    std::thread spriteSendThread([&]() { sendSpriteData(clientSocket, sprite1); });
+    std::thread spriteSendThread([&]() { sendSpriteData(clientSpriteSocket, sprite1); });
     spriteSendThread.detach();
 
     std::thread spriteReceiveThread([&]() {
         while (true) {
+<<<<<<< Updated upstream
             receiveSpriteData(clientSocket, sprite2);//, sprite3);
+=======
+			receiveSpriteData(clientSpriteSocket, sprite2, sprite3);
+>>>>>>> Stashed changes
 		}
 	});
     spriteReceiveThread.detach();
@@ -365,7 +397,8 @@ int main() {
         window.display();
     }
 
-    closesocket(clientSocket);
+    closesocket(clientParticleSocket);
+    closesocket(clientSpriteSocket);
     WSACleanup();
     return 0;
 }
