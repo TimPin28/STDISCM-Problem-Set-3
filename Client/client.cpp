@@ -118,7 +118,7 @@ void updateParticlesFromServer(SOCKET clientSocket, std::vector<Particle>& parti
     }
 }
 
-void sendSpriteData(SOCKET serverSocket, const sf::Sprite& sprite) {
+void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     struct SpriteData {
         float x, y;
     };
@@ -128,9 +128,55 @@ void sendSpriteData(SOCKET serverSocket, const sf::Sprite& sprite) {
         data.x = sprite.getPosition().x;
         data.y = sprite.getPosition().y;
 
-        send(serverSocket, (char*)&data, sizeof(data), 0);
+        send(clientSocket, (char*)&data, sizeof(data), 0);
+    }
+}
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Send data periodically
+void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
+    struct SpriteData {
+        float x, y;
+    };
+
+    // Data for sprite1
+    SpriteData data1;
+
+    // Receive data for sprite1
+    int bytesReceived1 = recv(clientSocket, (char*)&data1, sizeof(data1), 0);
+
+    if (bytesReceived1 == sizeof(data1)) {
+        // Update sprite1's position
+        sprite1.setPosition(data1.x, data1.y);
+        //print sprite1 position
+        std::cout << "Sprite1 position: " << data1.x << ", " << data1.y << std::endl;
+    }
+    else if (bytesReceived1 == 0) {
+        // Client disconnected
+        std::cout << "Client disconnected." << std::endl;
+    }
+    else {
+        // Error or incomplete data received
+        std::cerr << "Error receiving sprite data for sprite1." << std::endl;
+    }
+
+    // Data for sprite2
+    SpriteData data2;
+
+    // Receive data for sprite2
+    int bytesReceived2 = recv(clientSocket, (char*)&data2, sizeof(data2), 0);
+
+    if (bytesReceived2 == sizeof(data2)) {
+        // Update sprite2's position
+        sprite2.setPosition(data2.x, data2.y);
+        //print sprite2 position
+        std::cout << "Sprite2 position: " << data2.x << ", " << data2.y << std::endl;
+    }
+    else if (bytesReceived2 == 0) {
+        // Client disconnected
+        std::cout << "Client disconnected." << std::endl;
+    }
+    else {
+        // Error or incomplete data received
+        std::cerr << "Error receiving sprite data for sprite2." << std::endl;
     }
 }
 
@@ -153,7 +199,7 @@ int main() {
     // Connect to the server
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("192.168.254.105");  // Server IP address
+    serverAddr.sin_addr.s_addr = inet_addr("172.20.10.7");  // Server IP address
     serverAddr.sin_port = htons(12345);
 
     if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
@@ -201,16 +247,26 @@ int main() {
         return -1;
     }
 
-    // Initialize sprite
-    sf::Sprite sprite;
-    sprite.setTexture(spriteTexture);
-    sprite.setPosition(windowSize.x / 2.f, windowSize.y / 2.f); // Starting position
+    // Initialize sprites
+    sf::Sprite sprite1;
+    sf::Sprite sprite2;
+    sf::Sprite sprite3;
 
-    // Scale the sprite
+    sprite1.setTexture(spriteTexture);
+    sprite2.setTexture(spriteTexture);
+    sprite3.setTexture(spriteTexture);
+
+    sprite1.setPosition(windowSize.x / 2.f, windowSize.y / 2.f); // Starting position
+    sprite2.setPosition(-10000, -10000);
+    sprite3.setPosition(-10000, -10000);
+
+    // Scale the sprites
     sf::Vector2u textureSize = spriteTexture.getSize();
     float desiredWidth = 1.f; // Set width
     float scale = desiredWidth / textureSize.x;
-    sprite.setScale(scale, scale); // Apply scaling
+    sprite1.setScale(scale, scale);
+    sprite2.setScale(scale, scale);
+    sprite3.setScale(scale, scale);
 
     sf::View explorerView(sf::FloatRect(0, 0, 33.f, 19.f));
     explorerView.setCenter(windowSize.x / 2.f, windowSize.y / 2.f);
@@ -221,8 +277,15 @@ int main() {
     std::thread listenerThread(updateParticlesFromServer, clientSocket, std::ref(particles));
     listenerThread.detach();  // Detach the thread
 
-    std::thread spriteSendThread([&]() { sendSpriteData(clientSocket, sprite); });
+    std::thread spriteSendThread([&]() { sendSpriteData(clientSocket, sprite1); });
     spriteSendThread.detach();
+
+    std::thread spriteReceiveThread([&]() {
+        while (true) {
+			receiveSpriteData(clientSocket, sprite2, sprite3);
+		}
+	});
+    spriteReceiveThread.detach();
 
     while (window.isOpen()) {
         sf::Event event;
@@ -237,30 +300,30 @@ int main() {
             if (event.type == sf::Event::KeyPressed) {
                 float moveSpeed = 2.0f; // Adjust speed
                 if (event.key.code == sf::Keyboard::W || event.key.code == sf::Keyboard::Up) {
-                    if (sprite.getPosition().y > 0.00) {
-                        sprite.move(0, -moveSpeed); // Move up
+                    if (sprite1.getPosition().y > 0.00) {
+                        sprite1.move(0, -moveSpeed); // Move up
                     }
                 }
                 else if (event.key.code == sf::Keyboard::S || event.key.code == sf::Keyboard::Down) {
-                    if (sprite.getPosition().y < 720.00) {
-                        sprite.move(0, moveSpeed); // Move down                 
+                    if (sprite1.getPosition().y < 720.00) {
+                        sprite1.move(0, moveSpeed); // Move down                 
                     }
                 }
                 else if (event.key.code == sf::Keyboard::A || event.key.code == sf::Keyboard::Left) {
-                    if (sprite.getPosition().x > 0.00) {
-                        sprite.move(-moveSpeed, 0); // Move left 
+                    if (sprite1.getPosition().x > 0.00) {
+                        sprite1.move(-moveSpeed, 0); // Move left 
                     }
                 }
                 else if (event.key.code == sf::Keyboard::D || event.key.code == sf::Keyboard::Right) {
-                    if (sprite.getPosition().x < 1280.00) {
-                        sprite.move(moveSpeed, 0); // Move right
+                    if (sprite1.getPosition().x < 1280.00) {
+                        sprite1.move(moveSpeed, 0); // Move right
                     }
                 }
             }
         }
 
         // Adjust the view to center on the sprite's position
-        sf::Vector2f spritePosition = sprite.getPosition();
+        sf::Vector2f spritePosition = sprite1.getPosition();
         explorerView.setCenter(spritePosition);
         window.setView(explorerView);
         window.clear();
@@ -292,7 +355,9 @@ int main() {
             }
         }
         
-        window.draw(sprite); // Draw the sprite in the window
+        window.draw(sprite1);
+        window.draw(sprite2);
+        window.draw(sprite3);
 
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
