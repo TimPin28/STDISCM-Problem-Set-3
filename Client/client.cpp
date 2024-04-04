@@ -151,9 +151,10 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite2) {
     while (true) {
         int bytesReceived = recv(clientSocket, (char*)&newData, sizeof(newData), 0);
         if (bytesReceived > 0) {
-            std::lock_guard<std::mutex> lock(spriteDataMutex);
-            // Update the buffer with new data
-            sprite2Buffer = newData;
+            //std::lock_guard<std::mutex> lock(spriteDataMutex);
+            //// Update the buffer with new data
+            //sprite2Buffer = newData;
+            sprite2.setPosition(newData.x, newData.y);
         }
         else if (bytesReceived == 0) {
             std::cout << "Client disconnected." << std::endl;
@@ -350,12 +351,12 @@ int main() {
             fpsUpdateClock.restart(); // Reset the fpsUpdateClock for the next 0.5-second interval
         }
 
-        // Update sprite positions from buffered data
-        {
-            std::lock_guard<std::mutex> lock(spriteDataMutex);
-            updateSpriteFromData(std::ref(sprite2), sprite2Buffer);
-            // If you have sprite2 and sprite3, update them similarly
-        }
+        //// Update sprite positions from buffered data
+        //{
+        //    std::lock_guard<std::mutex> lock(spriteDataMutex);
+        //    updateSpriteFromData(std::ref(sprite2), sprite2Buffer);
+        //    // If you have sprite2 and sprite3, update them similarly
+        //}
 
         // Access shared particles data safely
         {
