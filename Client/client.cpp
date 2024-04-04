@@ -353,7 +353,7 @@ int main() {
         // Update sprite positions from buffered data
         {
             std::lock_guard<std::mutex> lock(spriteDataMutex);
-            updateSpriteFromData(sprite2, sprite2Buffer);
+            updateSpriteFromData(std::ref(sprite2), sprite2Buffer);
             // If you have sprite2 and sprite3, update them similarly
         }
 
@@ -371,7 +371,7 @@ int main() {
         
         window.draw(sprite1);
         window.draw(sprite2);
-        window.draw(sprite3);
+        //window.draw(sprite3);
 
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
