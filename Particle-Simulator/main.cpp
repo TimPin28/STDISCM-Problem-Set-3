@@ -738,7 +738,6 @@ int main() {
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
-        //Thread?
         if (spriteClient1 != INVALID_SOCKET) {   
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient1);

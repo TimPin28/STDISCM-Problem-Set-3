@@ -19,7 +19,7 @@
 
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
-#define SERVER_IP "192.168.1.19"
+#define SERVER_IP "192.168.1.42"
 
 
 using namespace std;
@@ -171,6 +171,26 @@ void updateSpriteFromData(sf::Sprite& sprite, const SpriteData& data) {
 }
 
 int main() {
+
+    float spawnX = 0;
+    float spawnY = 0;
+    bool spawnCheck = false;
+
+    while (!spawnCheck) {
+        cout << "Enter the spawn position (x): ";
+        cin >> spawnX;
+        cout << "Enter the spawn position (y): ";
+        cin >> spawnY;
+
+        //input validation
+        if (spawnX <= 0 || spawnX >= 1280 || spawnY <= 0 || spawnY >= 720) {
+			cerr << "Invalid spawn position." << endl;
+		}
+        else {
+			spawnCheck = true;
+		}
+    }
+
     // Initialize Winsock
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -268,7 +288,7 @@ int main() {
     sprite2.setTexture(spriteTexture);
     sprite3.setTexture(spriteTexture);
 
-    sprite1.setPosition(windowSize.x / 2.f, windowSize.y / 2.f); // Starting position
+    sprite1.setPosition(spawnX, spawnY); // Starting position
     sprite2.setPosition(-10000, -10000);
     sprite3.setPosition(-10000, -10000);
 
@@ -359,17 +379,19 @@ int main() {
         //}
 
         // Access shared particles data safely
-        {
-            std::lock_guard<std::mutex> guard(particleMutex);
-            //Draw particles
-            for (const auto& particle : particles) {
-                sf::CircleShape shape(particle.radius);
-                shape.setFillColor(sf::Color::Green);
-                shape.setPosition(static_cast<float>(particle.x - particle.radius), static_cast<float>(particle.y - particle.radius));
-                window.draw(shape);
-            }
+        //{
+        //    std::lock_guard<std::mutex> guard(particleMutex);
+        //    //Draw particles
+        //    
+        //}
+
+        for (const auto& particle : particles) {
+            sf::CircleShape shape(particle.radius);
+            shape.setFillColor(sf::Color::Green);
+            shape.setPosition(static_cast<float>(particle.x - particle.radius), static_cast<float>(particle.y - particle.radius));
+            window.draw(shape);
         }
-        
+
         window.draw(sprite1);
         window.draw(sprite2);
         //window.draw(sprite3);
