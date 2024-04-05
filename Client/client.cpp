@@ -19,7 +19,7 @@
 
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
-#define SERVER_IP "172.20.10.7"
+#define SERVER_IP "192.168.1.42"
 
 
 using namespace std;
@@ -170,48 +170,47 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& spr
     struct SpriteData {
         float x, y;
     };
-    while (true) {
-        // Data for sprite1
-        SpriteData data1;
 
-        // Receive data for sprite1
-        int bytesReceived1 = recv(clientSocket, (char*)&data1, sizeof(data1), 0);
+    // Data for sprite1
+    SpriteData data1;
 
-        if (bytesReceived1 == sizeof(data1)) {
-            // Update sprite1's position
-            sprite1.setPosition(data1.x, data1.y);
-            //print sprite1 position
-            cout << "Sprite1 position: " << data1.x << ", " << data1.y << endl;
-        }
-        else if (bytesReceived1 == 0) {
-            // Client disconnected
-            std::cout << "Client disconnected." << std::endl;
-        }
-        else {
-            // Error or incomplete data received
-            std::cerr << "Error receiving sprite data for sprite1." << std::endl;
-        }
+    // Receive data for sprite1
+    int bytesReceived1 = recv(clientSocket, (char*)&data1, sizeof(data1), 0);
 
-        // Data for sprite2
-        SpriteData data2;
+    if (bytesReceived1 == sizeof(data1)) {
+        // Update sprite1's position
+        sprite1.setPosition(data1.x, data1.y);
+        //print sprite1 position
+        cout << "Sprite1 position: " << data1.x << ", " << data1.y << endl;
+    }
+    else if (bytesReceived1 == 0) {
+        // Client disconnected
+        std::cout << "Client disconnected." << std::endl;
+    }
+    else {
+        // Error or incomplete data received
+        std::cerr << "Error receiving sprite data for sprite1." << std::endl;
+    }
 
-        // Receive data for sprite2
-        int bytesReceived2 = recv(clientSocket, (char*)&data2, sizeof(data2), 0);
+    // Data for sprite2
+    SpriteData data2;
 
-        if (bytesReceived2 == sizeof(data2)) {
-            // Update sprite2's position
-            sprite2.setPosition(data2.x, data2.y);
-            //print sprite2 position
-            cout << "Sprite2 position: " << data2.x << ", " << data2.y << endl;
-        }
-        else if (bytesReceived2 == 0) {
-            // Client disconnected
-            std::cout << "Client disconnected." << std::endl;
-        }
-        else {
-            // Error or incomplete data received
-            std::cerr << "Error receiving sprite data for sprite2." << std::endl;
-        }
+    // Receive data for sprite2
+    int bytesReceived2 = recv(clientSocket, (char*)&data2, sizeof(data2), 0);
+
+    if (bytesReceived2 == sizeof(data2)) {
+        // Update sprite2's position
+        sprite2.setPosition(data2.x, data2.y);
+        //print sprite2 position
+        cout << "Sprite2 position: " << data2.x << ", " << data2.y << endl;
+    }
+    else if (bytesReceived2 == 0) {
+        // Client disconnected
+        std::cout << "Client disconnected." << std::endl;
+    }
+    else {
+        // Error or incomplete data received
+        std::cerr << "Error receiving sprite data for sprite2." << std::endl;
     }
 }
 
