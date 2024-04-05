@@ -13,10 +13,6 @@
 #include <queue>
 #include <mutex>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
 #define SERVER_IP "10.147.17.27"
@@ -26,10 +22,6 @@ using namespace std;
 #pragma comment(lib, "ws2_32.lib")
 constexpr int BUFFER_SIZE = 1024;
 
-std::mutex particleMutex;  // Mutex for thread-safe access to particles
-
-// Global or shared mutex for sprite data
-std::mutex spriteDataMutex;
 struct SpriteData {
     float x, y;
 };
@@ -41,10 +33,6 @@ public:
 
     Particle(double x, double y, double angle, double radius)
         : x(x), y(y), radius(radius) {
-        // Convert angle to radians and calculate velocity components
-        /*double rad = angle * (M_PI / 180.0);
-        vx = velocity * cos(rad);
-        vy = -velocity * sin(rad);*/
     }
 
     // Default constructor
@@ -81,49 +69,36 @@ void drawGrid(sf::RenderWindow& window, int gridSize) {
     }
 }
 
-vector<Particle> receive_particle_data(SOCKET clientSocket) {
-    size_t numParticles = 0;
-    vector<Particle> receivedParticles;
-
-    // First, receive the number of particles
-    int bytesReceived = recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
-    if (bytesReceived < 0) {
-        cerr << "No particles or connection closed." << endl;
-        return receivedParticles;
-    }
-
-    cout << "Receiving " << numParticles << " particles" << endl;
-
-    // Use a vector to store received data dynamically
-    vector<double> data(numParticles * 3);  // Each particle has 3 values (x, y, radius)
-
-    if (numParticles > 0) {
-        // Then receive the particle data
-        bytesReceived = recv(clientSocket, (char*)data.data(), numParticles * 3 * sizeof(double), 0);
-        if (bytesReceived <= 0) {
-            cerr << "Failed to receive particle data or connection closed." << endl;
-            return receivedParticles;
-        }
-
-        // Process the received data
-        for (size_t i = 0; i < numParticles; ++i) {
-            double x = data[i * 3];
-            double y = data[i * 3 + 1];
-            double radius = data[i * 3 + 2];
-            cout << "Particle " << i << ": x=" << x << ", y=" << y << ", radius=" << radius << endl;
-            receivedParticles.push_back(Particle(x, y, 0, radius));
-        }
-    }
-
-    return receivedParticles;
-}
-
-void updateParticlesFromServer(SOCKET clientSocket, std::vector<Particle>& particles) {
+void receive_particle_data(SOCKET clientSocket, std::vector<Particle>& particles) {
     while (true) {
-        std::vector<Particle> newParticles = receive_particle_data(clientSocket);
+        size_t numParticles = 0;
+        vector<Particle> receivedParticles;
 
-        std::lock_guard<std::mutex> guard(particleMutex);  // Lock the mutex for safe access to particles
-        particles = newParticles;  // Update the shared particles vector
+        // First, receive the number of particles
+        int bytesReceived = recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
+        if (bytesReceived < 0) {
+            cerr << "No particles or connection closed." << endl;
+        }
+
+        // Use a vector to store received data dynamically
+        vector<double> data(numParticles * 3);  // Each particle has 3 values (x, y, radius)
+
+        if (numParticles > 0) {
+            // Then receive the particle data
+            bytesReceived = recv(clientSocket, (char*)data.data(), numParticles * 3 * sizeof(double), 0);
+            if (bytesReceived <= 0) {
+                cerr << "Failed to receive particle data or connection closed." << endl;
+            }
+
+            // Process the received data
+            for (size_t i = 0; i < numParticles; ++i) {
+                double x = data[i * 3];
+                double y = data[i * 3 + 1];
+                double radius = data[i * 3 + 2];
+                receivedParticles.push_back(Particle(x, y, 0, radius));
+            }
+        }
+        particles = receivedParticles;
     }
 }
 
@@ -156,8 +131,6 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& spr
         if (bytesReceived1 == sizeof(data1)) {
             // Update sprite1's position
             sprite1.setPosition(data1.x, data1.y);
-            //print sprite1 position
-            cout << "Sprite1 position: " << data1.x << ", " << data1.y << endl;
         }
         else if (bytesReceived1 == 0) {
             // Client disconnected
@@ -177,8 +150,6 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& spr
         if (bytesReceived2 == sizeof(data2)) {
             // Update sprite2's position
             sprite2.setPosition(data2.x, data2.y);
-            //print sprite2 position
-            cout << "Sprite2 position: " << data2.x << ", " << data2.y << endl;
         }
         else if (bytesReceived2 == 0) {
             // Client disconnected
@@ -319,14 +290,14 @@ int main() {
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
 
     std::vector<Particle> particles;
-    std::thread listenerThread(updateParticlesFromServer, clientParticleSocket, std::ref(particles));
+    std::thread listenerThread(receive_particle_data, clientParticleSocket, std::ref(particles));
     listenerThread.detach();  // Detach the thread
 
     std::thread spriteReceiveThread(receiveSpriteData, clientSpriteSocket, std::ref(sprite2), std::ref(sprite3));
-    spriteReceiveThread.detach();
+    spriteReceiveThread.detach(); // Detach the thread
 
     std::thread sendSpriteThread(sendSpriteData, clientSpriteSocket, std::ref(sprite1));
-    sendSpriteThread.detach();
+    sendSpriteThread.detach(); // Detach the thread
 
     while (window.isOpen()) {
         sf::Event event;

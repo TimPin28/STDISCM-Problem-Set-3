@@ -24,7 +24,6 @@ std::condition_variable cv;
 std::mutex cv_m;
 bool ready = false; // Flag to signal threads to start processing
 bool done = false;  // Flag to indicate processing is done for the current frame
-bool explorerMode = false; // Flag to enable explorer mode
 bool hasParticles = false; // Flag to indicate if there are particles in the simulation
 
 class Particle {
