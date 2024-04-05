@@ -1,4 +1,4 @@
-# STDISCM-PROBLEM-SET-3 ([STILL NEEDS TO BE REVISED])
+# STDISCM-PROBLEM-SET-3
  
 # Distributed Particle Simulator
 
