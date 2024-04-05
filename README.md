@@ -45,6 +45,7 @@ After launching the Distributed Particle Simulator, you will be presented with a
   - Form 3: Input a range of velocities, and particles will be added with velocities distributed within this range.
 
 ### Explorer Application: Traversing with the Sprite
+- The program will ask first where to spawn the Sprite in the window.
 - The user can traverse through the canvas with the use of the W,A,S,D keys or arrow keys.
 
 ### Simulation Control
