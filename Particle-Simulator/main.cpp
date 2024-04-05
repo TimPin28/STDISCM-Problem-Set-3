@@ -155,7 +155,7 @@ void send_particle_data(const std::vector<Particle>& particles, SOCKET clientSoc
     send(clientSocket, (char*)data.data(), data.size() * sizeof(double), 0);
 }
 
-void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1) {//, sf::Sprite& sprite2) {
+void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
     struct SpriteData {
 		float x, y;
 	};
@@ -166,15 +166,15 @@ void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1) {//, sf::Sprite& s
 	data1.y = sprite1.getPosition().y;
 
     // Data for sprite2
-    /*SpriteData data2;
+    SpriteData data2;
     data2.x = sprite2.getPosition().x;
-    data2.y = sprite2.getPosition().y;*/
+    data2.y = sprite2.getPosition().y;
 
     // Send data for sprite1
     send(clientSocket, (char*)&data1, sizeof(data1), 0);
 
     // Send data for sprite2
-    //send(clientSocket, (char*)&data2, sizeof(data2), 0);
+    send(clientSocket, (char*)&data2, sizeof(data2), 0);
 }
 
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
@@ -745,21 +745,21 @@ int main() {
             //std::thread sendThread(send_particle_data, particles, spriteClient1);
             //sendThread.detach();
             
-            sendSpriteData(spriteClient1, sprite2);
+            sendSpriteData(spriteClient1, sprite2, sprite3);
 		}
         if (spriteClient2 != INVALID_SOCKET) {
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient2);
             }
             
-            sendSpriteData(spriteClient2, sprite1);
+            sendSpriteData(spriteClient2, sprite1, sprite3);
         }
         if (spriteClient3 != INVALID_SOCKET) {
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient3);
             }
             
-            sendSpriteData(spriteClient3, sprite1);
+            sendSpriteData(spriteClient3, sprite1, sprite2);
         }
 
         //Draw particles
