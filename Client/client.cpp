@@ -21,7 +21,6 @@
 #define PARTICLE_PORT 12346
 #define SERVER_IP "172.20.10.7"
 
-
 using namespace std;
 
 #pragma comment(lib, "ws2_32.lib")
@@ -34,9 +33,6 @@ std::mutex spriteDataMutex;
 struct SpriteData {
     float x, y;
 };
-
-SpriteData sprite1Buffer;
-SpriteData sprite2Buffer;
 
 class Particle {
 public:
@@ -145,26 +141,6 @@ void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     }
 }
 
-//void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite2) {
-//    SpriteData newData;
-//
-//    while (true) {
-//        int bytesReceived = recv(clientSocket, (char*)&newData, sizeof(newData), 0);
-//        if (bytesReceived > 0) {
-//            //std::lock_guard<std::mutex> lock(spriteDataMutex);
-//            //// Update the buffer with new data
-//            //sprite2Buffer = newData;
-//            sprite2.setPosition(newData.x, newData.y);
-//        }
-//        else if (bytesReceived == 0) {
-//            std::cout << "Client disconnected." << std::endl;
-//            break;
-//        }
-//        else {
-//            std::cerr << "Error receiving sprite data." << std::endl;
-//        }
-//    }
-//}
 
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
     struct SpriteData {
@@ -214,10 +190,6 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& spr
             std::cerr << "Error receiving sprite data for sprite2." << std::endl;
         }
     }
-}
-
-void updateSpriteFromData(sf::Sprite& sprite, const SpriteData& data) {
-    sprite.setPosition(data.x, data.y);
 }
 
 int main() {
@@ -420,20 +392,6 @@ int main() {
             fpsText.setString(ss.str());
             fpsUpdateClock.restart(); // Reset the fpsUpdateClock for the next 0.5-second interval
         }
-
-        //// Update sprite positions from buffered data
-        //{
-        //    std::lock_guard<std::mutex> lock(spriteDataMutex);
-        //    updateSpriteFromData(std::ref(sprite2), sprite2Buffer);
-        //    // If you have sprite2 and sprite3, update them similarly
-        //}
-
-        // Access shared particles data safely
-        //{
-        //    std::lock_guard<std::mutex> guard(particleMutex);
-        //    //Draw particles
-        //    
-        //}
 
         for (const auto& particle : particles) {
             sf::CircleShape shape(particle.radius);
