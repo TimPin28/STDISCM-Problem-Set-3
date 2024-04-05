@@ -139,21 +139,21 @@ SOCKET acceptClientConnections(SOCKET clientSocketType, std::string socketType) 
 void send_particle_data(const std::vector<Particle>& particles, SOCKET clientSocket) {
     size_t numParticles = particles.size();
 
-    // Sending each particle's x, y, and radius as a continuous array of doubles
-    std::vector<double> data(numParticles * 3);
+    // Sending each particle's x and y as a continuous array of doubles
+    std::vector<double> data(numParticles * 2);
 
     for (size_t i = 0; i < numParticles; ++i) {
-        data[i * 3] = particles[i].x;
-        data[i * 3 + 1] = particles[i].y;
-        data[i * 3 + 2] = particles[i].radius;
+        data[i * 2] = particles[i].x;     // Assign x coordinate
+        data[i * 2 + 1] = particles[i].y; // Assign y coordinate
     }
 
     // Send the number of particles first
     send(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
 
-    // Then send the particle data
+    // Then send the particle data (only x and y coordinates)
     send(clientSocket, (char*)data.data(), data.size() * sizeof(double), 0);
 }
+
 
 void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
     struct SpriteData {
