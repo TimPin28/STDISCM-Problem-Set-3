@@ -15,7 +15,7 @@
 
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
-#define SERVER_IP "10.147.17.27"
+#define SERVER_IP "10.52.1.246"
 
 using namespace std;
 
@@ -168,9 +168,9 @@ int main() {
     bool spawnCheck = false;
 
     while (!spawnCheck) {
-        cout << "Enter the spawn position (x): ";
+        cout << "Enter the spawn position X (Must be in the range of 1 - 1279): ";
         cin >> spawnX;
-        cout << "Enter the spawn position (y): ";
+        cout << "Enter the spawn position Y (Must be in the range of 1 - 719): ";
         cin >> spawnY;
 
         //input validation
