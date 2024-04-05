@@ -310,7 +310,17 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
         receiveThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient1, std::ref(sprite2), std::ref(sprite3));
+                // Sleep for a short duration to limit the rate of data sending
+                std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+            }
         });
+        sendSprite.detach();
+    });
     connectClient1.detach();
 
     std::thread connectClient2([&]() {
@@ -319,7 +329,17 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
         receiveThread.detach();
-        });
+
+        //Thread for sending sprite data
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient2, std::ref(sprite1), std::ref(sprite3));
+                // Sleep for a short duration to limit the rate of data sending
+                std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+            }
+            });
+        sendSprite.detach();
+    });
     connectClient2.detach();
 
     std::thread connectClient3([&]() {
@@ -328,7 +348,17 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
         receiveThread.detach();
-        });
+
+        //Thread for sending sprite data
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient3, std::ref(sprite1), std::ref(sprite2));
+                // Sleep for a short duration to limit the rate of data sending
+                std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+            }
+            });
+        sendSprite.detach();
+    });
     connectClient3.detach();
 
     // Initialize window size
@@ -738,29 +768,29 @@ int main() {
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
 
-        if (spriteClient1 != INVALID_SOCKET) {   
-            if (!particles.empty()) {
-                send_particle_data(particles, particleClient1);
-            }
-            //std::thread sendThread(send_particle_data, particles, spriteClient1);
-            //sendThread.detach();
-            
-            sendSpriteData(spriteClient1, sprite2, sprite3);
-		}
-        if (spriteClient2 != INVALID_SOCKET) {
-            if (!particles.empty()) {
-                send_particle_data(particles, particleClient2);
-            }
-            
-            sendSpriteData(spriteClient2, sprite1, sprite3);
-        }
-        if (spriteClient3 != INVALID_SOCKET) {
-            if (!particles.empty()) {
-                send_particle_data(particles, particleClient3);
-            }
-            
-            sendSpriteData(spriteClient3, sprite1, sprite2);
-        }
+  //      if (spriteClient1 != INVALID_SOCKET) {   
+  //          if (!particles.empty()) {
+  //              send_particle_data(particles, particleClient1);
+  //          }
+  //          //std::thread sendThread(send_particle_data, particles, spriteClient1);
+  //          //sendThread.detach();
+  //          
+  //          sendSpriteData(spriteClient1, sprite2, sprite3);
+		//}
+  //      if (spriteClient2 != INVALID_SOCKET) {
+  //          if (!particles.empty()) {
+  //              send_particle_data(particles, particleClient2);
+  //          }
+  //          
+  //          sendSpriteData(spriteClient2, sprite1, sprite3);
+  //      }
+  //      if (spriteClient3 != INVALID_SOCKET) {
+  //          if (!particles.empty()) {
+  //              send_particle_data(particles, particleClient3);
+  //          }
+  //          
+  //          sendSpriteData(spriteClient3, sprite1, sprite2);
+  //      }
 
         //Draw particles
         for (const auto& particle : particles) {
