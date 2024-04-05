@@ -19,7 +19,7 @@
 
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
-#define SERVER_IP "172.20.10.7"
+#define SERVER_IP "10.52.1.77"
 
 using namespace std;
 
