@@ -160,23 +160,21 @@ void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite
 		float x, y;
 	};
 
-    while (true) {
-        // Data for sprite1
-        SpriteData data1;
-        data1.x = sprite1.getPosition().x;
-        data1.y = sprite1.getPosition().y;
+    // Data for sprite1
+	SpriteData data1;
+	data1.x = sprite1.getPosition().x;
+	data1.y = sprite1.getPosition().y;
 
-        // Data for sprite2
-        SpriteData data2;
-        data2.x = sprite2.getPosition().x;
-        data2.y = sprite2.getPosition().y;
+    // Data for sprite2
+    SpriteData data2;
+    data2.x = sprite2.getPosition().x;
+    data2.y = sprite2.getPosition().y;
 
-        // Send data for sprite1
-        send(clientSocket, (char*)&data1, sizeof(data1), 0);
+    // Send data for sprite1
+    send(clientSocket, (char*)&data1, sizeof(data1), 0);
 
-        // Send data for sprite2
-        send(clientSocket, (char*)&data2, sizeof(data2), 0);
-    }
+    // Send data for sprite2
+    send(clientSocket, (char*)&data2, sizeof(data2), 0);
 }
 
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
@@ -309,11 +307,6 @@ int main() {
     std::thread connectClient1([&]() {
         spriteClient1 = acceptClientConnections(serverSpriteSocket);
         particleClient1 = acceptClientConnections(serverParticleSocket);
-
-        //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, sprite2, sprite3);
-        sendThread.detach();
-
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
         receiveThread.detach();
@@ -323,11 +316,6 @@ int main() {
     std::thread connectClient2([&]() {
         spriteClient2 = acceptClientConnections(serverSpriteSocket);
         particleClient2 = acceptClientConnections(serverParticleSocket);
-
-        //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient2, sprite1, sprite3);
-        sendThread.detach();
-
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
         receiveThread.detach();
@@ -337,11 +325,6 @@ int main() {
     std::thread connectClient3([&]() {
         spriteClient3 = acceptClientConnections(serverSpriteSocket);
         particleClient3 = acceptClientConnections(serverParticleSocket);
-
-        //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, sprite1, sprite2);
-        sendThread.detach();
-
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
         receiveThread.detach();
@@ -762,21 +745,21 @@ int main() {
             //std::thread sendThread(send_particle_data, particles, spriteClient1);
             //sendThread.detach();
             
-           // sendSpriteData(spriteClient1, sprite2, sprite3);
+            sendSpriteData(spriteClient1, sprite2, sprite3);
 		}
         if (spriteClient2 != INVALID_SOCKET) {
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient2);
             }
             
-            //sendSpriteData(spriteClient2, sprite1, sprite3);
+            sendSpriteData(spriteClient2, sprite1, sprite3);
         }
         if (spriteClient3 != INVALID_SOCKET) {
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient3);
             }
             
-            //sendSpriteData(spriteClient3, sprite1, sprite2);
+            sendSpriteData(spriteClient3, sprite1, sprite2);
         }
 
         //Draw particles
