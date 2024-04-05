@@ -25,6 +25,7 @@ std::mutex cv_m;
 bool ready = false; // Flag to signal threads to start processing
 bool done = false;  // Flag to indicate processing is done for the current frame
 bool explorerMode = false; // Flag to enable explorer mode
+bool hasParticles = false; // Flag to indicate if there are particles in the simulation
 
 class Particle {
 public:
@@ -273,6 +274,8 @@ int main() {
     SOCKET particleClient2 = INVALID_SOCKET;
     SOCKET particleClient3 = INVALID_SOCKET;
 
+    std::vector<Particle> particles;
+
     // Load sprite texture
     sf::Texture spriteTexture;
     if (!spriteTexture.loadFromFile("Image/sprite.png")) {
@@ -311,6 +314,17 @@ int main() {
         std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
         receiveThread.detach();
 
+        std::thread sendThread([&]() {
+            while (true) {
+                if (hasParticles) {
+                    send_particle_data(particles, particleClient1);
+                    // Sleep for a short duration to limit the rate of data sending
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+                }
+            }
+            });
+        sendThread.detach();
+
         //Thread for sending sprite data
         std::thread sendSprite([&]() {
             while (true) {
@@ -329,6 +343,17 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
         receiveThread.detach();
+
+        std::thread sendThread([&]() {
+            while (true) {
+                if (hasParticles) {
+                    send_particle_data(particles, particleClient2);
+                    // Sleep for a short duration to limit the rate of data sending
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+                }
+            }
+            });
+        sendThread.detach();
 
         //Thread for sending sprite data
         std::thread sendSprite([&]() {
@@ -349,6 +374,17 @@ int main() {
         std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
         receiveThread.detach();
 
+        std::thread sendThread([&]() {
+            while (true) {
+                if (hasParticles) {
+                    send_particle_data(particles, particleClient3);
+                    // Sleep for a short duration to limit the rate of data sending
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+                }
+            }
+            });
+        sendThread.detach();
+
         //Thread for sending sprite data
         std::thread sendSprite([&]() {
             while (true) {
@@ -368,7 +404,6 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-    std::vector<Particle> particles;
 
     double deltaTime = 1; // Time step for updating particle positions
 
@@ -596,6 +631,7 @@ int main() {
                 // Add each particle to the simulation
                 particles.push_back(Particle(xPos, yPos, angle, velocity, 1));// radius is 5
             }
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             noParticles1->setText("");
@@ -642,6 +678,7 @@ int main() {
                 // Add each particle to the simulation
                 particles.push_back(Particle(startPoint.x, startPoint.y, angle, velocity, 1)); // radius is 5
             }
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             noParticles2->setText("");
@@ -681,6 +718,7 @@ int main() {
                 // Add each particle to the simulation
                 particles.push_back(Particle(startPoint.x, startPoint.y, angle, velocity, 1)); // radius is 5
             }
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             noParticles3->setText("");
@@ -711,6 +749,8 @@ int main() {
 
             // Add particle to the simulation
             particles.push_back(Particle(xPos, yPos, angle, velocity, 1)); // radius is 5
+
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             basicX1PosEditBox->setText("");
@@ -767,30 +807,6 @@ int main() {
 
         startFrame(); // Signal threads to start processing
         ready = false; // Threads are now processing
-
-  //      if (spriteClient1 != INVALID_SOCKET) {   
-  //          if (!particles.empty()) {
-  //              send_particle_data(particles, particleClient1);
-  //          }
-  //          //std::thread sendThread(send_particle_data, particles, spriteClient1);
-  //          //sendThread.detach();
-  //          
-  //          sendSpriteData(spriteClient1, sprite2, sprite3);
-		//}
-  //      if (spriteClient2 != INVALID_SOCKET) {
-  //          if (!particles.empty()) {
-  //              send_particle_data(particles, particleClient2);
-  //          }
-  //          
-  //          sendSpriteData(spriteClient2, sprite1, sprite3);
-  //      }
-  //      if (spriteClient3 != INVALID_SOCKET) {
-  //          if (!particles.empty()) {
-  //              send_particle_data(particles, particleClient3);
-  //          }
-  //          
-  //          sendSpriteData(spriteClient3, sprite1, sprite2);
-  //      }
 
         //Draw particles
         for (const auto& particle : particles) {
