@@ -22,6 +22,8 @@ using namespace std;
 #pragma comment(lib, "ws2_32.lib")
 constexpr int BUFFER_SIZE = 1024;
 
+std::mutex particleMutex;  // Mutex for thread-safe access to particles
+
 struct SpriteData {
     float x, y;
 };
@@ -76,31 +78,36 @@ void receive_particle_data(SOCKET clientSocket, std::vector<Particle>& particles
 
         // First, receive the number of particles
         int bytesReceived = recv(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
-        if (bytesReceived < 0) {
-            cerr << "No particles or connection closed." << endl;
+        if (bytesReceived <= 0) {
+            cerr << "Failed to receive the number of particles or connection closed." << endl;
+            break;  // Exit the loop if no data is received or if there's an error
         }
 
         // Use a vector to store received data dynamically
-        vector<double> data(numParticles * 3);  // Each particle has 3 values (x, y, radius)
+        vector<double> data(numParticles * 2);  // Each particle has 2 values (x, y)
 
-        if (numParticles > 0) {
-            // Then receive the particle data
-            bytesReceived = recv(clientSocket, (char*)data.data(), numParticles * 3 * sizeof(double), 0);
-            if (bytesReceived <= 0) {
-                cerr << "Failed to receive particle data or connection closed." << endl;
-            }
-
-            // Process the received data
-            for (size_t i = 0; i < numParticles; ++i) {
-                double x = data[i * 3];
-                double y = data[i * 3 + 1];
-                double radius = data[i * 3 + 2];
-                receivedParticles.push_back(Particle(x, y, 0, radius));
-            }
+        // Then receive the particle data
+        bytesReceived = recv(clientSocket, (char*)data.data(), numParticles * 2 * sizeof(double), 0);
+        if (bytesReceived <= 0) {
+            cerr << "Failed to receive particle data or connection closed." << endl;
+            break;  // Exit the loop if no data is received or if there's an error
         }
-        particles = receivedParticles;
+
+        // Process the received data
+        for (size_t i = 0; i < numParticles; ++i) {
+            double x = data[i * 2];
+            double y = data[i * 2 + 1];
+            // Use a default radius, e.g., 1, or whatever is appropriate for your simulation
+            receivedParticles.push_back(Particle(x, y, 0, 1));
+        }
+
+        {
+            lock_guard<mutex> guard(particleMutex);
+            particles = move(receivedParticles);
+        }
     }
 }
+
 
 void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     struct SpriteData {
