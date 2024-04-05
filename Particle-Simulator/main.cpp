@@ -25,7 +25,6 @@ std::mutex cv_m;
 bool ready = false; // Flag to signal threads to start processing
 bool done = false;  // Flag to indicate processing is done for the current frame
 bool explorerMode = false; // Flag to enable explorer mode
-std::vector<boolean> connections = {false, false, false}; // Array to store connection status of clients
 
 class Particle {
 public:
@@ -140,24 +139,20 @@ SOCKET acceptClientConnections(SOCKET clientSocketType) {
 void send_particle_data(const std::vector<Particle>& particles, SOCKET clientSocket) {
     size_t numParticles = particles.size();
 
-    while (true) {
-        if (numParticles > 0) {
-            // Sending each particle's x, y, and radius as a continuous array of doubles
-            std::vector<double> data(numParticles * 3);
+    // Sending each particle's x, y, and radius as a continuous array of doubles
+    std::vector<double> data(numParticles * 3);
 
-            for (size_t i = 0; i < numParticles; ++i) {
-                data[i * 3] = particles[i].x;
-                data[i * 3 + 1] = particles[i].y;
-                data[i * 3 + 2] = particles[i].radius;
-            }
-
-            // Send the number of particles first
-            send(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
-
-            // Then send the particle data
-            send(clientSocket, (char*)data.data(), data.size() * sizeof(double), 0);
-        }
+    for (size_t i = 0; i < numParticles; ++i) {
+        data[i * 3] = particles[i].x;
+        data[i * 3 + 1] = particles[i].y;
+        data[i * 3 + 2] = particles[i].radius;
     }
+
+    // Send the number of particles first
+    send(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
+
+    // Then send the particle data
+    send(clientSocket, (char*)data.data(), data.size() * sizeof(double), 0);
 }
 
 void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
@@ -316,7 +311,7 @@ int main() {
         particleClient1 = acceptClientConnections(serverParticleSocket);
 
         //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite2), std::ref(sprite3));
+        std::thread sendThread(sendSpriteData, spriteClient1, sprite2, sprite3);
         sendThread.detach();
 
         //Thread for receiving sprite data
@@ -330,7 +325,7 @@ int main() {
         particleClient2 = acceptClientConnections(serverParticleSocket);
 
         //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient2, std::ref(sprite1), std::ref(sprite3));
+        std::thread sendThread(sendSpriteData, spriteClient2, sprite1, sprite3);
         sendThread.detach();
 
         //Thread for receiving sprite data
@@ -344,7 +339,7 @@ int main() {
         particleClient3 = acceptClientConnections(serverParticleSocket);
 
         //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite2));
+        std::thread sendThread(sendSpriteData, spriteClient1, sprite1, sprite2);
         sendThread.detach();
 
         //Thread for receiving sprite data
@@ -762,35 +757,23 @@ int main() {
 
         if (spriteClient1 != INVALID_SOCKET) {   
             if (!particles.empty()) {
-                if (!connections[0]) {
-                    connections[0] = true;
-                    std::thread sendThread(send_particle_data, particles, spriteClient1);
-                    sendThread.detach();
-                }
-                //send_particle_data(particles, particleClient1);
+                send_particle_data(particles, particleClient1);
             }
-            
+            //std::thread sendThread(send_particle_data, particles, spriteClient1);
+            //sendThread.detach();
             
            // sendSpriteData(spriteClient1, sprite2, sprite3);
 		}
         if (spriteClient2 != INVALID_SOCKET) {
             if (!particles.empty()) {
-                if (!connections[1]) {
-                    connections[1] = true;
-                    std::thread sendThread(send_particle_data, particles, spriteClient2);
-                    sendThread.detach();
-                }
+                send_particle_data(particles, particleClient2);
             }
             
             //sendSpriteData(spriteClient2, sprite1, sprite3);
         }
         if (spriteClient3 != INVALID_SOCKET) {
             if (!particles.empty()) {
-                if (!connections[2]) {
-                    connections[2] = true;
-                    std::thread sendThread(send_particle_data, particles, spriteClient3);
-                    sendThread.detach();
-                }
+                send_particle_data(particles, particleClient3);
             }
             
             //sendSpriteData(spriteClient3, sprite1, sprite2);
