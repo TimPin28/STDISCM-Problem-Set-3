@@ -141,7 +141,6 @@ void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     }
 }
 
-
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
     struct SpriteData {
         float x, y;

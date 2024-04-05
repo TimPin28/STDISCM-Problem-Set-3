@@ -120,8 +120,8 @@ void drawGrid(sf::RenderWindow& window, int gridSize) {
 
 void startFrame() {
     nextParticleIndex.store(0); // Reset the counter for the next frame
-    ready = true;
     cv.notify_all();
+    ready = true;
 }
 
 // Function to accept client connections
@@ -161,9 +161,9 @@ void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite
 	};
 
     // Data for sprite1
-	SpriteData data1;
-	data1.x = sprite1.getPosition().x;
-	data1.y = sprite1.getPosition().y;
+    SpriteData data1;
+    data1.x = sprite1.getPosition().x;
+    data1.y = sprite1.getPosition().y;
 
     // Data for sprite2
     SpriteData data2;
@@ -175,6 +175,7 @@ void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite
 
     // Send data for sprite2
     send(clientSocket, (char*)&data2, sizeof(data2), 0);
+    
 }
 
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
@@ -312,9 +313,16 @@ int main() {
         receiveThread.detach();
 
         //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite2), std::ref(sprite3));
-        sendThread.detach();
-        });
+       /* std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite2), std::ref(sprite3));
+        sendThread.detach();*/
+
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient1, std::ref(sprite2), std::ref(sprite3));
+            }
+            });
+        sendSprite.detach();
+        });   
     connectClient1.detach();
 
     std::thread connectClient2([&]() {
@@ -325,9 +333,16 @@ int main() {
         receiveThread.detach();
 
         //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite3));
-        sendThread.detach();
-        });
+        /*std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite3));
+        sendThread.detach();*/
+
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient2, std::ref(sprite1), std::ref(sprite3));
+            }
+            });
+        sendSprite.detach();
+        });        
     connectClient2.detach();
 
     std::thread connectClient3([&]() {
@@ -338,8 +353,15 @@ int main() {
         receiveThread.detach();
 
         //Thread for sending sprite data
-        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite2));
-        sendThread.detach();
+        /*std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite2));
+        sendThread.detach();*/
+
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient3, std::ref(sprite1), std::ref(sprite2));
+            }
+            });
+        sendSprite.detach();
         });
     connectClient3.detach();
 
@@ -757,21 +779,21 @@ int main() {
             //std::thread sendThread(send_particle_data, particles, spriteClient1);
             //sendThread.detach();
             
-            sendSpriteData(spriteClient1, sprite2, sprite3);
+            //sendSpriteData(spriteClient1, sprite2, sprite3);
 		}
         if (spriteClient2 != INVALID_SOCKET) {
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient2);
             }
             
-            sendSpriteData(spriteClient2, sprite1, sprite3);
+            //sendSpriteData(spriteClient2, sprite1, sprite3);
         }
         if (spriteClient3 != INVALID_SOCKET) {
             if (!particles.empty()) {
                 send_particle_data(particles, particleClient3);
             }
             
-            sendSpriteData(spriteClient3, sprite1, sprite2);
+            //sendSpriteData(spriteClient3, sprite1, sprite2);
         }
 
         //Draw particles
