@@ -125,14 +125,14 @@ void startFrame() {
 }
 
 // Function to accept client connections
-SOCKET acceptClientConnections(SOCKET clientSocketType) {
+SOCKET acceptClientConnections(SOCKET clientSocketType, std::string socketType) {
     SOCKET client;
     client = accept(clientSocketType, nullptr, nullptr);
     if (client == INVALID_SOCKET) {
         std::cerr << "Accept failed." << std::endl;
         return client;
     }
-    std::cout << "Client connected." << std::endl;
+    std::cout << "Client " << socketType << " connected." << std::endl;
     return client;
 }
 
@@ -307,8 +307,8 @@ int main() {
 
     // Accept 3 client connections
     std::thread connectClient1([&]() {
-        spriteClient1 = acceptClientConnections(serverSpriteSocket);
-        particleClient1 = acceptClientConnections(serverParticleSocket);
+        spriteClient1 = acceptClientConnections(serverSpriteSocket, "Sprite");
+        particleClient1 = acceptClientConnections(serverParticleSocket, "Particle");
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
         receiveThread.detach();
@@ -337,8 +337,8 @@ int main() {
     connectClient1.detach();
 
     std::thread connectClient2([&]() {
-        spriteClient2 = acceptClientConnections(serverSpriteSocket);
-        particleClient2 = acceptClientConnections(serverParticleSocket);
+        spriteClient2 = acceptClientConnections(serverSpriteSocket, "Sprite");
+        particleClient2 = acceptClientConnections(serverParticleSocket, "Particle");
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
         receiveThread.detach();
@@ -367,8 +367,8 @@ int main() {
     connectClient2.detach();
 
     std::thread connectClient3([&]() {
-        spriteClient3 = acceptClientConnections(serverSpriteSocket);
-        particleClient3 = acceptClientConnections(serverParticleSocket);
+        spriteClient3 = acceptClientConnections(serverSpriteSocket, "Sprite");
+        particleClient3 = acceptClientConnections(serverParticleSocket, "Particle");
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
         receiveThread.detach();
