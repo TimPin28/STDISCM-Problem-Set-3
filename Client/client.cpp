@@ -19,8 +19,7 @@
 
 #define SPRITE_PORT 12345
 #define PARTICLE_PORT 12346
-#define SERVER_IP "172.20.10.7"
-
+#define SERVER_IP "192.168.254.105"
 
 using namespace std;
 
@@ -34,9 +33,6 @@ std::mutex spriteDataMutex;
 struct SpriteData {
     float x, y;
 };
-
-SpriteData sprite1Buffer;
-SpriteData sprite2Buffer;
 
 class Particle {
 public:
@@ -145,27 +141,6 @@ void sendSpriteData(SOCKET clientSocket, const sf::Sprite& sprite) {
     }
 }
 
-//void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite2) {
-//    SpriteData newData;
-//
-//    while (true) {
-//        int bytesReceived = recv(clientSocket, (char*)&newData, sizeof(newData), 0);
-//        if (bytesReceived > 0) {
-//            //std::lock_guard<std::mutex> lock(spriteDataMutex);
-//            //// Update the buffer with new data
-//            //sprite2Buffer = newData;
-//            sprite2.setPosition(newData.x, newData.y);
-//        }
-//        else if (bytesReceived == 0) {
-//            std::cout << "Client disconnected." << std::endl;
-//            break;
-//        }
-//        else {
-//            std::cerr << "Error receiving sprite data." << std::endl;
-//        }
-//    }
-//}
-
 void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
     struct SpriteData {
         float x, y;
@@ -216,12 +191,7 @@ void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& spr
     }
 }
 
-void updateSpriteFromData(sf::Sprite& sprite, const SpriteData& data) {
-    sprite.setPosition(data.x, data.y);
-}
-
 int main() {
-
     float spawnX = 0;
     float spawnY = 0;
     bool spawnCheck = false;
@@ -283,7 +253,6 @@ int main() {
     serverParticleAddr.sin_addr.s_addr = inet_addr(SERVER_IP);  // Server IP address
     serverParticleAddr.sin_port = htons(PARTICLE_PORT);
 
-
     if (connect(clientParticleSocket, reinterpret_cast<sockaddr*>(&serverParticleAddr), sizeof(serverParticleAddr)) == SOCKET_ERROR) {
         cerr << "Connection failed." << WSAGetLastError() << endl;
         closesocket(clientParticleSocket);
@@ -296,12 +265,6 @@ int main() {
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
     sf::RenderWindow window(sf::VideoMode(windowSize.x, windowSize.y), "Particle Simulator");
-
-    size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
-
-    std::vector<std::thread> threads;
-
-    double deltaTime = 1; // Time step for updating particle positions
 
     // Set the frame rate limit
     window.setFramerateLimit(60);
@@ -419,21 +382,7 @@ int main() {
             ss << "FPS: " << std::fixed << fps;
             fpsText.setString(ss.str());
             fpsUpdateClock.restart(); // Reset the fpsUpdateClock for the next 0.5-second interval
-        }
-
-        //// Update sprite positions from buffered data
-        //{
-        //    std::lock_guard<std::mutex> lock(spriteDataMutex);
-        //    updateSpriteFromData(std::ref(sprite2), sprite2Buffer);
-        //    // If you have sprite2 and sprite3, update them similarly
-        //}
-
-        // Access shared particles data safely
-        //{
-        //    std::lock_guard<std::mutex> guard(particleMutex);
-        //    //Draw particles
-        //    
-        //}
+        }      
 
         for (const auto& particle : particles) {
             sf::CircleShape shape(particle.radius);
