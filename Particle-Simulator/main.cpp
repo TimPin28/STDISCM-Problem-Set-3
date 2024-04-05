@@ -24,13 +24,13 @@ std::condition_variable cv;
 std::mutex cv_m;
 bool ready = false; // Flag to signal threads to start processing
 bool done = false;  // Flag to indicate processing is done for the current frame
-bool explorerMode = false; // Flag to enable explorer mode
+bool hasParticles = false; // Flag to indicate if there are particles in the simulation
 
 class Particle {
 public:
     double x, y; // Position
     double vx, vy; // Velocity
-    double radius;
+    double radius; // Radius
 
     Particle(double x, double y, double angle, double velocity, double radius)
         : x(x), y(y), radius(radius) {
@@ -38,6 +38,24 @@ public:
         double rad = angle * (M_PI / 180.0);
         vx = velocity * cos(rad);
         vy = -velocity * sin(rad);
+    }
+
+    Particle(double x, double y, double radius) {
+        x = x;
+        y = y;
+        radius = radius;
+    }
+    Particle() {
+		x = 0;
+		y = 0;
+		radius = 0;
+	}
+
+    // Serialize the object into a byte stream
+    std::vector<char> serialize() const {
+        std::vector<char> data(sizeof(this));
+        memcpy(data.data(), this, sizeof(this));
+        return data;
     }
 
     void updatePosition(double deltaTime, double simWidth, double simHeight) {
@@ -52,10 +70,9 @@ public:
         x += vx * deltaTime;
         y += vy * deltaTime;
     }
-
 };
 
-void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight) {
+void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, double simWidth, double simHeight, SOCKET serverSocket) {
     while (!done) {
         std::unique_lock<std::mutex> lk(cv_m);
         cv.wait(lk, [] { return ready || done; });
@@ -66,7 +83,7 @@ void updateParticleWorker(std::vector<Particle>& particles, double deltaTime, do
             if (index >= particles.size()) {
                 break;
             }
-            particles[index].updatePosition(deltaTime, simWidth, simHeight);
+            particles[index].updatePosition(deltaTime, simWidth, simHeight);           
         }
     }
 }
@@ -107,8 +124,81 @@ void startFrame() {
     cv.notify_all();
 }
 
-int main() {
+// Function to accept client connections
+SOCKET acceptClientConnections(SOCKET clientSocketType) {
+    SOCKET client;
+    client = accept(clientSocketType, nullptr, nullptr);
+    if (client == INVALID_SOCKET) {
+        std::cerr << "Accept failed." << std::endl;
+        return client;
+    }
+    std::cout << "Client connected." << std::endl;
+    return client;
+}
 
+void send_particle_data(const std::vector<Particle>& particles, SOCKET clientSocket) {
+    size_t numParticles = particles.size();
+
+    // Sending each particle's x, y, and radius as a continuous array of doubles
+    std::vector<double> data(numParticles * 3);
+
+    for (size_t i = 0; i < numParticles; ++i) {
+        data[i * 3] = particles[i].x;
+        data[i * 3 + 1] = particles[i].y;
+        data[i * 3 + 2] = particles[i].radius;
+    }
+
+    // Send the number of particles first
+    send(clientSocket, (char*)&numParticles, sizeof(numParticles), 0);
+
+    // Then send the particle data
+    send(clientSocket, (char*)data.data(), data.size() * sizeof(double), 0);
+}
+
+void sendSpriteData(SOCKET clientSocket, sf::Sprite& sprite1, sf::Sprite& sprite2) {
+    struct SpriteData {
+		float x, y;
+	};
+
+    // Data for sprite1
+	SpriteData data1;
+	data1.x = sprite1.getPosition().x;
+	data1.y = sprite1.getPosition().y;
+
+    // Data for sprite2
+    SpriteData data2;
+    data2.x = sprite2.getPosition().x;
+    data2.y = sprite2.getPosition().y;
+
+    // Send data for sprite1
+    send(clientSocket, (char*)&data1, sizeof(data1), 0);
+
+    // Send data for sprite2
+    send(clientSocket, (char*)&data2, sizeof(data2), 0);
+}
+
+void receiveSpriteData(SOCKET clientSocket, sf::Sprite& sprite) {
+    struct SpriteData {
+        float x, y;
+    };
+
+    SpriteData data;
+
+    while (true) {
+        int bytesReceived = recv(clientSocket, (char*)&data, sizeof(data), 0);
+        if (bytesReceived > 0) {
+            // Update the sprite's position based on received data
+            sprite.setPosition(data.x, data.y);
+        }
+        else {
+            std::cout << "Client disconnected." << std::endl;
+            sprite.setPosition(-10000, -10000); // Move the sprite off-screen
+            break;
+        }
+    }
+}
+
+int main() {
     // Initialize Winsock
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -116,37 +206,195 @@ int main() {
         return 1;
     }
 
-    // Create socket
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket == INVALID_SOCKET) {
+    // Server sockets for sprites
+    SOCKET serverSpriteSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSpriteSocket == INVALID_SOCKET) {
         std::cerr << "Socket creation failed." << std::endl;
         WSACleanup();
         return 1;
     }
 
-    // Bind the socket
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(12345);
+    // Server socket for particles
+    SOCKET serverParticleSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverParticleSocket == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed." << std::endl;
+        WSACleanup();
+        return 1;
+    }
 
-    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+    // Bind the sprite socket
+    sockaddr_in serverSpriteAddr;
+    serverSpriteAddr.sin_family = AF_INET;
+    serverSpriteAddr.sin_addr.s_addr = INADDR_ANY;
+    serverSpriteAddr.sin_port = htons(12345);
+
+    if (bind(serverSpriteSocket, reinterpret_cast<sockaddr*>(&serverSpriteAddr), sizeof(serverSpriteAddr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed." << std::endl;
-        closesocket(serverSocket);
+        closesocket(serverSpriteSocket);
         WSACleanup();
         return 1;
     }
 
-    // Listen for incoming connections
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+    // Bind the particle socket
+    sockaddr_in serverParticleAddr;
+    serverParticleAddr.sin_family = AF_INET;
+    serverParticleAddr.sin_addr.s_addr = INADDR_ANY;
+    serverParticleAddr.sin_port = htons(12346);
+
+    if (bind(serverParticleSocket, reinterpret_cast<sockaddr*>(&serverParticleAddr), sizeof(serverParticleAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed." << std::endl;
+        closesocket(serverSpriteSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Listen for incoming connections for sprites 
+    if (listen(serverSpriteSocket, SOMAXCONN) == SOCKET_ERROR) {
         std::cerr << "Listen failed." << std::endl;
-        closesocket(serverSocket);
+        closesocket(serverSpriteSocket);
         WSACleanup();
         return 1;
     }
 
-    std::cout << "Waiting for connections..." << std::endl;
+    // Listen for incoming connections for particles
+    if (listen(serverParticleSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr << "Listen failed." << std::endl;
+        closesocket(serverParticleSocket);
+        WSACleanup();
+		return 1;
+	}
 
+    // Define SOCKET variables outside the threads
+    SOCKET spriteClient1 = INVALID_SOCKET;
+    SOCKET spriteClient2 = INVALID_SOCKET;
+    SOCKET spriteClient3 = INVALID_SOCKET;
+
+    SOCKET particleClient1 = INVALID_SOCKET;
+    SOCKET particleClient2 = INVALID_SOCKET;
+    SOCKET particleClient3 = INVALID_SOCKET;
+
+    std::vector<Particle> particles;
+
+    // Load sprite texture
+    sf::Texture spriteTexture;
+    if (!spriteTexture.loadFromFile("Image/sprite.png")) {
+        // Handle error
+        std::cerr << "Could not load sprite texture\n";
+        return -1;
+    }
+
+    // Initialize sprites
+    sf::Sprite sprite1;
+    sf::Sprite sprite2;
+    sf::Sprite sprite3;
+
+    sprite1.setTexture(spriteTexture);
+    sprite2.setTexture(spriteTexture);
+    sprite3.setTexture(spriteTexture);
+
+    //Hide Sprites
+    sprite1.setPosition(-10000, -10000); 
+    sprite2.setPosition(-10000, -10000);
+    sprite3.setPosition(-10000, -10000);
+
+    // Scale the sprites
+    sf::Vector2u textureSize = spriteTexture.getSize();
+    float desiredWidth = 5.f; // Set width
+    float scale = desiredWidth / textureSize.x;
+    sprite1.setScale(scale, scale); 
+    sprite2.setScale(scale, scale);
+    sprite3.setScale(scale, scale);
+
+    // Accept 3 client connections
+    std::thread connectClient1([&]() {
+        spriteClient1 = acceptClientConnections(serverSpriteSocket);
+        particleClient1 = acceptClientConnections(serverParticleSocket);
+        //Thread for receiving sprite data
+        std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
+        receiveThread.detach();
+
+        std::thread sendThread([&]() {
+            while (true) {
+                if (hasParticles) {
+                    send_particle_data(particles, particleClient1);
+                    // Sleep for a short duration to limit the rate of data sending
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+                }
+            }
+            });
+        sendThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient1, std::ref(sprite2), std::ref(sprite3));
+                // Sleep for a short duration to limit the rate of data sending
+                std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+            }
+        });
+        sendSprite.detach();
+    });
+    connectClient1.detach();
+
+    std::thread connectClient2([&]() {
+        spriteClient2 = acceptClientConnections(serverSpriteSocket);
+        particleClient2 = acceptClientConnections(serverParticleSocket);
+        //Thread for receiving sprite data
+        std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
+        receiveThread.detach();
+
+        std::thread sendThread([&]() {
+            while (true) {
+                if (hasParticles) {
+                    send_particle_data(particles, particleClient2);
+                    // Sleep for a short duration to limit the rate of data sending
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+                }
+            }
+            });
+        sendThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient2, std::ref(sprite1), std::ref(sprite3));
+                // Sleep for a short duration to limit the rate of data sending
+                std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+            }
+            });
+        sendSprite.detach();
+    });
+    connectClient2.detach();
+
+    std::thread connectClient3([&]() {
+        spriteClient3 = acceptClientConnections(serverSpriteSocket);
+        particleClient3 = acceptClientConnections(serverParticleSocket);
+        //Thread for receiving sprite data
+        std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
+        receiveThread.detach();
+
+        std::thread sendThread([&]() {
+            while (true) {
+                if (hasParticles) {
+                    send_particle_data(particles, particleClient3);
+                    // Sleep for a short duration to limit the rate of data sending
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+                }
+            }
+            });
+        sendThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendSprite([&]() {
+            while (true) {
+                sendSpriteData(spriteClient3, std::ref(sprite1), std::ref(sprite2));
+                // Sleep for a short duration to limit the rate of data sending
+                std::this_thread::sleep_for(std::chrono::milliseconds(30)); // Adjust the delay as needed
+            }
+            });
+        sendSprite.detach();
+    });
+    connectClient3.detach();
 
     // Initialize window size
     sf::Vector2u windowSize(1280, 720);
@@ -155,8 +403,6 @@ int main() {
     size_t threadCount = std::thread::hardware_concurrency(); // Use the number of concurrent threads supported by the hardware
 
     std::vector<std::thread> threads;
-
-    std::vector<Particle> particles;
 
     double deltaTime = 1; // Time step for updating particle positions
 
@@ -176,11 +422,6 @@ int main() {
     fpsText.setFillColor(sf::Color::White);
     fpsText.setPosition(5.f, 5.f); // Position the FPS counter in the top-left corner
 
-    sf::Text explorerText("Press E to enter Explorer Mode", font, 20);
-    explorerText.setFillColor(sf::Color::White);
-    explorerText.setPosition(0, 720); // Position text in the bottom-left corner
-    window.draw(explorerText);
-
     tgui::Gui gui(window); // Initialize TGUI Gui object for the window
 
     // Check box to toggle visibility of input fields
@@ -193,7 +434,6 @@ int main() {
     renderer->setTextColor(sf::Color::White);
     
     // Widgets for input fields
-
     // Particle Input Form 1
     auto noParticles1 = tgui::EditBox::create();
     noParticles1->setPosition("10%", "5%");
@@ -390,6 +630,7 @@ int main() {
                 // Add each particle to the simulation
                 particles.push_back(Particle(xPos, yPos, angle, velocity, 1));// radius is 5
             }
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             noParticles1->setText("");
@@ -436,6 +677,7 @@ int main() {
                 // Add each particle to the simulation
                 particles.push_back(Particle(startPoint.x, startPoint.y, angle, velocity, 1)); // radius is 5
             }
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             noParticles2->setText("");
@@ -475,6 +717,7 @@ int main() {
                 // Add each particle to the simulation
                 particles.push_back(Particle(startPoint.x, startPoint.y, angle, velocity, 1)); // radius is 5
             }
+            hasParticles = true;
 
             // Clear the edit boxes after adding particles
             noParticles3->setText("");
@@ -506,6 +749,8 @@ int main() {
             // Add particle to the simulation
             particles.push_back(Particle(xPos, yPos, angle, velocity, 1)); // radius is 5
 
+            hasParticles = true;
+
             // Clear the edit boxes after adding particles
             basicX1PosEditBox->setText("");
             basicY1PosEditBox->setText("");
@@ -522,32 +767,9 @@ int main() {
         }
         });
 
-    // Load sprite texture
-    sf::Texture spriteTexture;
-    if (!spriteTexture.loadFromFile("Image/sprite.png")) {
-        // Handle error
-        std::cerr << "Could not load sprite texture\n";
-        return -1;
-    }
-
-    // Initialize sprite
-    sf::Sprite sprite;
-    sprite.setTexture(spriteTexture);
-    sprite.setPosition(windowSize.x / 2.f, windowSize.y / 2.f); // Starting position
-
-    // Scale the sprite
-    sf::Vector2u textureSize = spriteTexture.getSize();
-    float desiredWidth = 1.f; // Set width
-    float scale = desiredWidth / textureSize.x;
-    sprite.setScale(scale, scale); // Apply scaling
-
-    // Views for developer 
-    sf::View developerView(sf::FloatRect(0, 0, 1280, 720));
-
-
     // Create worker threads
     for (size_t i = 0; i < threadCount; ++i) {
-        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0);
+        threads.emplace_back(updateParticleWorker, std::ref(particles), deltaTime, 1280.0, 720.0, serverParticleSocket);
     }
 
     sf::View uiView(sf::FloatRect(0, 0, windowSize.x, windowSize.y));
@@ -593,25 +815,17 @@ int main() {
             window.draw(shape);
         }
 
-        if (explorerMode) {
-            sf::Vector2u textureSize = spriteTexture.getSize();
-            float desiredWidth = 1.f; // Set width
-            float scale = desiredWidth / textureSize.x;
-            sprite.setScale(scale, scale); // Apply scaling
-        }
-        else {
-            sf::Vector2u textureSize = spriteTexture.getSize();
-            float desiredWidth = 5.f; // Set width
-            float scale = desiredWidth / textureSize.x;
-            sprite.setScale(scale, scale); // Apply scaling
-            gui.draw(); // Draw the GUI
-        }
+        gui.draw(); // Draw the GUI
 
-        window.draw(sprite); // Draw the sprite in the window
+        // Draw the sprites in the window
+        window.draw(sprite1); 
+        window.draw(sprite2);
+        window.draw(sprite3);
+
         // Draw the FPS counter in a fixed position
         window.setView(uiView);
         window.draw(fpsText); // Draw the FPS counter on the window
-        //window.draw(sprite); // Draw the sprite in the window
+
         window.display();
     }
 
