@@ -310,6 +310,10 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient1, std::ref(sprite1));
         receiveThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite2), std::ref(sprite3));
+        sendThread.detach();
         });
     connectClient1.detach();
 
@@ -319,6 +323,10 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient2, std::ref(sprite2));
         receiveThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite3));
+        sendThread.detach();
         });
     connectClient2.detach();
 
@@ -328,6 +336,10 @@ int main() {
         //Thread for receiving sprite data
         std::thread receiveThread(receiveSpriteData, spriteClient3, std::ref(sprite3));
         receiveThread.detach();
+
+        //Thread for sending sprite data
+        std::thread sendThread(sendSpriteData, spriteClient1, std::ref(sprite1), std::ref(sprite2));
+        sendThread.detach();
         });
     connectClient3.detach();
 
